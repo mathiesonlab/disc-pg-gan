@@ -16,7 +16,7 @@ import tensorflow as tf
 import global_vars
 import discriminator
 from parse import parse_output
-import pred
+import prediction_utils
 from slim_iterator import SlimIterator
 
 SEED = global_vars.DEFAULT_SEED
@@ -81,21 +81,21 @@ discriminator will make predictions
 def get_real_data(DATA_RANGE, trial_data, pop_sel_list):
     regions = [None for l in DATA_RANGE]
 
-    generator = pred.get_generator(trial_data,
+    generator = prediction_indices.get_generator(trial_data,
                                    num_samples=iterator.num_samples,
                                    seed=SEED)
     regions[0] generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
 
-    iterator, pop_name = pred.get_iterator(trial_data)
+    iterator, pop_name = prediction_indices.get_iterator(trial_data)
     regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE)
 
-    pop_indices = pred.POP_INDICES[pop_name]
-    regions[2], _ =  pred.special_section(iterator, population_indices["HLA"])
+    pop_indices = prediction_indices.POP_INDICES[pop_name]
+    regions[2], _ =  prediction_indices.special_section(iterator, population_indices["HLA"])
 
-    pos_indices = pred.load_indices(pos_sel_list)
+    pos_indices = prediction_indices.load_indices(pos_sel_list)
     s_regions = []
     for index in pos_indices:
-        s_regions, _ = pred.special_section(iterator, index)
+        s_regions, _ = prediction_indices.special_section(iterator, index)
         pos_sel_regions.extend(s_regions)
     regions[3] = s_regions
 
@@ -185,8 +185,7 @@ def plot_cross_disc(in_trial_data, files):
 
     title_data = {"train": in_trial_data["pop"], "test": test_pop_name}
 
-    pos_indices = pred.load_indices(pos_sel_list)
-    regions, pop_name = get_real_data(DATA_RANGE, test_trial_data, pop_sel_list)
+    regions, _ = get_real_data(DATA_RANGE, test_trial_data, pop_sel_list)
 
     # iterate through discriminator list or load trial file ====================
     for tf in files:
@@ -211,6 +210,7 @@ if __name__ == "__main__":
     params, trial_data, files = get_params_trial_data(trial_files)
 
     if "real" in type:
+        print("arguments: pos. sel. file")
         plot_real(params, trial_data, files)
     elif "sel" in type:
         print("arguments: 5 files whose contents are lists of numpy arrays "+\
@@ -218,7 +218,7 @@ if __name__ == "__main__":
             +"0.025, 0.05, 0.10")
         plot_selection(files)
     elif "xpop" in type:
-        print("arguments: trial (train) files, xpop h5, and xpop pos. sel. file")
+        print("arguments: xpop h5, and xpop pos. sel. file")
         plot_cross_disc(trial_data, files)
     else:
         print("please provide \"real\", \"sel(ection)\", or \"xpop\" as the"+\
