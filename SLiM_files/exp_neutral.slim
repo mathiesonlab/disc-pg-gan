@@ -1,0 +1,58 @@
+initialize() {
+	
+	if (!exists("N1"))
+	   defineConstant("N1", 9000);
+	if (!exists("N2"))
+	   defineConstant("N2", 5000);
+
+	if (!exists("T1"))
+	   defineConstant("T1", 2000);
+	if (!exists("T2"))
+	   defineConstant("T2", 350);
+
+	  defineConstant("T_forward", 20);
+          defineConstant("T_growth", T1-T2+T_forward);
+
+	if (!exists("reco"))
+           defineConstant("reco", 1.25e-8);
+	if (!exists("L"))
+	   defineConstant("L", 50000);
+
+	if (!exists("growth"))
+            defineConstant("growth", 0.005);
+
+	initializeTreeSeq();
+
+	initializeMutationRate(0.); // !
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(reco);
+}
+
+1 {
+    sim.rescheduleScriptBlock(s1, start=T_forward, end=T_forward);
+
+    T_end=T1+T_forward;
+    sim.rescheduleScriptBlock(s2, start=T_growth, end=T_end);
+    sim.rescheduleScriptBlock(s3, start=T_end, end=T_end);
+
+    sim.addSubpop("p1", N1);
+}
+
+// size change event
+s1 1001 {
+   p1.setSubpopulationSize(N2);
+}
+
+// growth event
+s2 1002 {
+   t = sim.generation - T_growth;
+   size = asInteger(N2 / exp(-growth * t));
+   p1.setSubpopulationSize(size);
+}
+
+// "T0", end sim
+s3 1003 late() {
+	sim.treeSeqOutput(outpath);
+}
