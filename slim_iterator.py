@@ -78,13 +78,8 @@ class SlimIterator:
             gt_matrix = self.matrices[arr_idx][index]
             dist_vec = self.distances[arr_idx][index]
 
-        after, success = util.process_gt_dist(gt_matrix, dist_vec, region_len=region_len, neg1=neg1, real=True)
+        after = util.process_gt_dist(gt_matrix, dist_vec, region_len=region_len, neg1=neg1, real=True)
 
-        if not success:
-            print("Not success!")
-            return self.real_region(neg1, region_len)
-
-        # maybe we could re integrate snp_counts later, but it's not a priority rn
         return after
 
     def real_batch(self, batch_size=global_vars.BATCH_SIZE, neg1=True, region_len=False):

@@ -14,7 +14,7 @@ FRAC_TEST = 0.1 # depricated
 # to use custom trial data, switch OVERWRITE_TRIAL_DATA to True and
 # change the TRIAL_DATA dictionary to have the values desired.
 # Model, params, and param_values must be defined
-OVERWRITE_TRIAL_DATA = False
+OVERWRITE_TRIAL_DATA = True
 TRIAL_DATA = { 'model': 'const', 'params': 'N1', 'data_h5': None,
                'bed_file': None, 'reco_folder': None, 'param_values': '1000'}
 
@@ -40,14 +40,14 @@ def update_ss_labels(data_h5, iterator_type, generator_type):
     SLiM = "SLiM"
 
     if is_slim_iterator(iterator_type):
-        SS_LABELS.extend(SLiM)
+        SS_LABELS.append(SLiM)
     elif is_generator(iterator_type):
-        SS_LABELS.extend("msprime") # for pg-gan simulation trials
+        SS_LABELS.append("msprime") # for pg-gan simulation trials
     else:
         SS_LABELS.extend(pop_names.split("_"))
 
     if is_slim_iterator(generator_type):
-        SS_LABELS.extend(SLiM)
+        SS_LABELS.append(SLiM)
     else:
         SS_LABELS.append("simulation")
 
@@ -105,6 +105,6 @@ if __name__ == "__main__":
     # testing
     print(SS_LABELS)
     print(SS_COLORS)
-    update_ss_labels("CEU")
+    update_ss_labels("CEU", "real_data_random_iterator", "generator")
     print(SS_LABELS)
     print(SS_COLORS)

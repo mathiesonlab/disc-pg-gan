@@ -55,12 +55,12 @@ To generate regions in `SLiM`, be sure that your `SLiM` model matches the model 
 Follow the `pg-gan` instructions to get a set of parameters that match your population. Confirm that these are a good match using `summary_stats.py`, as described in the `pg-gan` README. Edit your SLiM file to use your parameters. For the provided `SLiM` models, these parameters are declared at the beginning of the file.
 As mentioned before, it is very possible that `SLiM` will crash under your given parameters. Run `SLiM` once to confirm that it will not crash: for example:
 ~~~
-slim -d i=0 -d outpath=\"sample.trees\" exp_neutral.slim
+slim -d outpath=\"sample.trees\" exp_neutral.slim
 ~~~
 See the aside "Reducing SLiM crashing" to resolve this. Likewise, check your selection `.slim` files, under selection strengths of s=0.01, 0.025, 0.05, and 0.10.
 The given `exp` model `SLiM` file runs with the following code:
 ~~~
-slim -d i=0 -d outpath=\"sample.trees\" -d sel=0.01 exp_selection.slim
+slim -d outpath=\"sample.trees\" -d sel=0.01 exp_selection.slim
 ~~~
 Where the `sel` argument accepts the selection strength.
 Remove the `.trees` files when done.

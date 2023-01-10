@@ -12,8 +12,11 @@ import random
 import sys
 import tensorflow as tf
 
+sys.path.insert(1, "../")
+
 # our imports
 import global_vars
+import discriminator
 import real_data_random
 import simulation
 import util
@@ -45,10 +48,7 @@ POP_INDICES = {"CEU": CEU_indices, "CHB": CHB_indices, "YRI": YRI_indices,
 # PREDICTION FUNCTIONS
 # =============================================================================
 '''Load disc and print its predictions on msprime, random real, HLA, & lactase data'''
-def main(generator, iterator, disc, population_indices):
-
-    # load model
-    trained_disc = tf.saved_model.load(disc)
+def main(generator, iterator, trained_disc, population_indices):
 
     generated_regions = generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
     probs_sim = process_regions(trained_disc, generated_regions)
@@ -79,7 +79,7 @@ def special_section(iterator, section_data, max_size=None):
 
     regions_arr = []
     positions_arr = []
-
+    
     i = 0
 
     for start_idx in range(section_start_idx, final_end, NUM_SNPS):
@@ -90,8 +90,8 @@ def special_section(iterator, section_data, max_size=None):
 
         region, start_pos, end_pos = result
         regions_arr.append(region)
-        positions_arr.append(np.array([start_pos, end_pos]))
-
+        positions_arr.append([chrom, start_pos, end_pos])
+        
         # for testing
         i += 1
         if max_size is not None and i >= max_size:
@@ -101,7 +101,7 @@ def special_section(iterator, section_data, max_size=None):
 
     regions = np.array(regions_arr)
     positions = np.array(positions_arr)
-
+    
     return regions, positions
 
 '''
@@ -109,6 +109,7 @@ Copied from real_data_random
 Returns the region that starts at the given index
 '''
 def special_region(chrom, start_idx, iterator):
+    chrom = str(chrom) # mask expects a str
     end_idx = start_idx + global_vars.NUM_SNPS
 
     # get bases to set up region object
@@ -125,15 +126,11 @@ def special_region(chrom, start_idx, iterator):
     dist_vec = [0] + [(positions[j+1] - positions[j])/\
                      global_vars.L for j in range(len(positions)-1)]
 
-    after, sufficient_snps = util.process_gt_dist(hap_data, dist_vec,
+    after = util.process_gt_dist(hap_data, dist_vec,
                                                   real=True, neg1=True,
                                                   region_len=False)
 
-    if sufficient_snps:
-        return after, region.start_pos, region.end_pos
-
-    print("process gt dist failed")
-    return None
+    return after, region.start_pos, region.end_pos
 
 # =============================================================================
 # PROBABILITY FUNCTIONS
@@ -225,5 +222,35 @@ def get_indices(iterator, chrom, start_pos, end_pos):
     print(chrom, start_idx, end_idx)
     return start_idx, end_idx
 
+'''
+For use in loading the extended list for positive selection
+Assumes format chrom,start,end
+'''
+def load_indices(filepath):
+    lines = open(filepath).readlines()
+
+    indices = []
+
+    for l in lines:
+        if l == "\n":
+            continue
+
+        chrom_str, start_str, end_str = l.split(',')
+        section_data = (int(chrom_str), int(start_str), int(end_str))
+        indices.append(section_data)
+
+    return indices
+
 if __name__ == "__main__":
-    pass
+    final_params, trial_data =  parse_output("../../local-pg-gan/1207/YRI/brooks9_exp_YRI.out")
+    iterator, pop_name = get_iterator(trial_data)
+    num_samples = iterator.num_samples
+    generator = get_generator(trial_data, num_samples)
+    generator.update_params(final_params)
+    
+    trained_disc = tf.saved_model.load("saved_model/" + trial_data["disc"] + "/")
+    trained_disc = discriminator.OnePopModel(num_samples, saved_model=trained_disc)
+    
+    population_indices = POP_INDICES[pop_name]
+
+    main(generator, iterator, trained_disc, population_indices)

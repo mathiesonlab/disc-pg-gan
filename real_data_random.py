@@ -116,7 +116,9 @@ def binary_search(q, lst):
 
 class RealDataRandomIterator:
 
-    def __init__(self, filename, bed_file=None, chrom_starts=False):
+    def __init__(self, filename, bed_file=None, chrom_starts=False, seed=global_vars.DEFAULT_SEED):
+        random.seed(seed)
+        
         callset = h5py.File(filename, mode='r')
         print(list(callset.keys()))
         # output: ['GT'] ['CHROM', 'POS']
@@ -178,7 +180,7 @@ class RealDataRandomIterator:
 
         return i # exclusive
 
-    def real_region(self, neg1, region_len, start_idx=None):
+    def real_region(self, neg1, region_len, start_idx=None, iterative=False):
 
         if start_idx is None:
             # inclusive
@@ -190,7 +192,10 @@ class RealDataRandomIterator:
                 if start_idx is None:
                     return self.real_region(neg1, region_len) # try again
                 else:
-                    return None # no recursion if walking through the genome
+                    if iterative:
+                        return None # no recursion if walking through the genome
+                    return self.real_region(neg1, region_len)
+        
         else:
             end_idx = start_idx + global_vars.NUM_SNPS # exclusive
 
@@ -203,8 +208,10 @@ class RealDataRandomIterator:
             if start_idx is None:
                 return self.real_region(neg1, region_len) # try again
             else:
-                return None # no recursion if walking through the genome
-
+                if iterative:
+                    return None # no recursion if walking through the genome
+                return self.real_region(neg1, region_len)
+                
         hap_data = self.haps_all[start_idx:end_idx, :]
         start_base = self.pos_all[start_idx]
         end_base = self.pos_all[end_idx]
@@ -228,7 +235,9 @@ class RealDataRandomIterator:
         if start_idx is None:
             return self.real_region(neg1, region_len) # try again
         else:
-            return None # no recursion if walking through the genome
+            if iterative:
+                return None # no recursion if walking through the genome
+            return self.real_region(neg1, region_len)
 
     def real_batch(self, batch_size = global_vars.BATCH_SIZE, neg1=True,
         region_len=False):

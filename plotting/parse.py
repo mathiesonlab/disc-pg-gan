@@ -1,10 +1,4 @@
-'''
-Utilities for parsing pg-gan .out files taken from ss_helpers.py
-(separated to avoid unnecessary imports.) Used in plot_seaborn.py
 
-Authors: Sara Mathieson, Rebecca Riley
-Date: 01/05/2023
-'''
 
 def parse_mini_lst(mini_lst):
     return [float(x.replace("[",'').replace("]",'').replace(",",'')) for x in
@@ -18,10 +12,15 @@ def add_to_lst(total_lst, mini_lst):
 def parse_output(filename, return_acc=False):
     """Parse pg-gan output to find the inferred parameters"""
 
-    def clean_param_tkn(str):
-        if str == 'None,':
+    def clean_param_tkn(s):
+        if s == 'None,':
             return None # this is a common result (not an edge case)
-        return str[1:-2]
+        
+        if s[:-1].isnumeric(): # probably the seed
+             # no need to remove quotation marks, just comma
+            return s[:-1] # only used as a label, so ok to leave as str
+            
+        return s[1:-2]
 
     f = open(filename,'r')
 
@@ -54,7 +53,10 @@ def parse_output(filename, return_acc=False):
             trial_data['data_h5'] = clean_param_tkn(tokens[5])
             trial_data['bed_file'] = clean_param_tkn(tokens[7])
             trial_data['reco_folder'] = clean_param_tkn(tokens[9])
-            trial_data['disc'] = clean_param_tkn(tokens[23])
+            trial_data['pop'] = trial_data["data_h5"].split("/")[6][0:3] \
+                if trial_data["data_h5"] is not None else None
+            trial_data['seed'] = clean_param_tkn(tokens[15])
+            trial_data['disc'] = clean_param_tkn(tokens[-1])
 
         elif "Epoch 100" in line:
             tokens = line.split()
