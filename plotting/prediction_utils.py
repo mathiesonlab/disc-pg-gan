@@ -24,8 +24,9 @@ import util
 from generator import Generator
 from parse import parse_output
 from real_data_random import Region
+from slim_iterator import SlimIterator
 
-ALT_BATCH_SIZE = 3
+ALT_BATCH_SIZE = 1000
 SEED = global_vars.DEFAULT_SEED
 
 NEG_1 = True
@@ -66,6 +67,22 @@ def main(generator, iterator, trained_disc, population_indices):
     for i in range(ALT_BATCH_SIZE):
         print(str(probs_sim[i])+"\t"+str(probs_real[i])+"\t"+str(probs_HLA[i])+"\t"+str(probs_lactase[i]))
 
+def test_slim(disc):
+    trained_disc = tf.saved_model.load(disc)
+
+    DATA_RANGE = range(5)
+    files = ["neutral.txt", "sel_01.txt", "sel_025.txt", "sel_05.txt", "sel_10.txt"]
+
+    regions = [SlimIterator(files[i]).real_batch(ALT_BATCH_SIZE) for i in DATA_RANGE]
+
+    predictions = [None for i in DATA_RANGE]
+
+    for i in DATA_RANGE:
+        predictions[i] = process_regions(trained_disc, regions[i])
+
+    for i in range(ALT_BATCH_SIZE):
+        print(predictions[0][i], predictions[1][i], predictions[2][i], predictions[3][i], predictions[4][i], sep=",")
+        
 '''
 Accepts an iterator (for the selected population), and tuple containing the
 chromosome number, and the hap data indices corresponding to the start and end
@@ -144,6 +161,103 @@ def process_regions(disc, regions, positions=None):
     probs = [get_prob(pred[0]) for pred in preds]
     return probs
 
+# =============================================================================
+# GET DATA
+# =============================================================================
+'''
+Returns an array of regions of different types, on which the trained
+discriminator will make predictions
+'''
+def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
+    regions = [None for l in DATA_RANGE]
+
+    iterator, pop_name = get_iterator(trial_data)
+    regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE)
+
+    pop_indices = POP_INDICES[pop_name]
+    regions[2], _ =  special_section(iterator, pop_indices["HLA"])
+
+    pos_indices = load_indices(pos_sel_list)
+    pos_sel_regions = []
+    for index in pos_indices:
+        s_regions, _ = special_section(iterator, index)
+        pos_sel_regions.extend(s_regions)
+        regions[3] = np.array(pos_sel_regions)
+
+    return regions, pop_name, iterator.num_samples
+                                                            
+def get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10):
+    sel_paths = ["neutral.txt", "sel_01.txt", "sel_025.txt", "sel_05.txt", "sel_10.txt"]
+    regions = [SlimIterator(sel_path).real_batch() for sel_path in sel_paths]
+    return regions
+
+# =============================================================================
+# MEAN, VARIANCE ANALYSIS
+# =============================================================================
+def get_mean_variance(filepath, test_h5, test_pos_sel, neutral, sel_01, sel_025, sel_05, sel_10):
+    print("disc name,msprime (trial params) mean,msprime (trial params) var,"+\
+          "test pop (random) mean,test pop (random) var,HLA (test pop) mean,HLA (test pop) var,"+\
+          "pos. sel. (test pop) mean,pos. sel. (test pop) var,"+\
+          "SLiM neutral (mean),SLiM neutral (var),SLiM s=0.01 (mean),SLiM s=0.01 (var),"+\
+          "SLiM s=0.025 (mean),SLiM s=0.025 (var),SLiM s=0.05 (mean),SLiM s=0.05 (var),"+\
+          "SLiM s=0.10 (mean), SLiM s=0.10 (var)")
+
+    DATA_RANGE = range(9)
+
+    files = open(filepath).readlines()
+    
+    infile = files[0][:-1] # remove newline
+    final_params, trial_data =  parse_output(infile)
+    trial_data["data_h5"] = test_h5
+
+    real_regions, test_pop_name, test_num_samples = \
+        get_real_data(range(4), trial_data, test_pos_sel)
+
+    sel_regions = get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10)
+    
+    generator = get_generator(trial_data,
+                                               num_samples = test_num_samples)
+
+    for f in files:
+        trial_file = f[:-1]
+        params, train_trial_data = parse_output(trial_file)
+        disc_name = train_trial_data["disc"]
+
+        generator.update_params(params)
+        real_regions[0] = generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
+
+        trained_disc = tf.saved_model.load("saved_model/" + disc_name + "/")
+        converted_disc = discriminator.OnePopModel(test_num_samples, saved_model=trained_disc)
+
+        predictions = [None for i in DATA_RANGE]
+        num_real_regions = len(real_regions)
+
+        for i in range(num_real_regions):
+            predictions[i] = process_regions(converted_disc, np.array(real_regions[i]))
+
+        for j in range(len(sel_regions)):
+            predictions[j+num_real_regions] = process_regions(trained_disc, sel_regions[j])
+
+        p0 = np.array(predictions[0])
+        p1 = np.array(predictions[1])
+        p2 = np.array(predictions[2])
+        p3 = np.array(predictions[3])
+        p4 = np.array(predictions[4])
+        p5 = np.array(predictions[5])
+        p6 = np.array(predictions[6])
+        p7 = np.array(predictions[7])
+        p8 = np.array(predictions[8])
+
+        print(disc_name, np.mean(p0), np.var(p0),
+                         np.mean(p1), np.var(p1),
+                         np.mean(p2), np.var(p2),
+                         np.mean(p3), np.var(p3),
+                         np.mean(p4), np.var(p4),
+                         np.mean(p5), np.var(p5),
+                         np.mean(p6), np.var(p6),
+                         np.mean(p7), np.var(p7),
+                         np.mean(p8), np.var(p8), sep=",")
+            
 # =============================================================================
 # UTILITES
 # =============================================================================
@@ -242,15 +356,4 @@ def load_indices(filepath):
     return indices
 
 if __name__ == "__main__":
-    final_params, trial_data =  parse_output("../../local-pg-gan/1207/YRI/brooks9_exp_YRI.out")
-    iterator, pop_name = get_iterator(trial_data)
-    num_samples = iterator.num_samples
-    generator = get_generator(trial_data, num_samples)
-    generator.update_params(final_params)
-    
-    trained_disc = tf.saved_model.load("saved_model/" + trial_data["disc"] + "/")
-    trained_disc = discriminator.OnePopModel(num_samples, saved_model=trained_disc)
-    
-    population_indices = POP_INDICES[pop_name]
-
-    main(generator, iterator, trained_disc, population_indices)
+    pass

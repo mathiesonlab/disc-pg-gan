@@ -9,6 +9,7 @@ Date: 01/03/2023
 
 import math
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 import sys
 import tensorflow as tf
@@ -18,9 +19,8 @@ import global_vars
 import discriminator
 from parse import parse_output
 import prediction_utils
-from slim_iterator import SlimIterator
 
-ALT_BATCH_SIZE = 100
+ALT_BATCH_SIZE = 1000
 SEED = global_vars.DEFAULT_SEED
 
 # =============================================================================
@@ -53,6 +53,7 @@ def save_plot(data, colors, labels, output, title_data):
               title_data["test"]+", seed: "+title_data["seed"])
 
     plt.xlim(0, 1)
+
     plt.tight_layout()
     # plt.savefig(output+".pdf", format='pdf', dpi=350)
     plt.savefig(output+".png", dpi=300)
@@ -77,28 +78,6 @@ def get_params_trial_data(trial_file):
         params, trial_data = parse_output(trial_file)
     return params, trial_data, files
 
-'''
-Returns an array of regions of different types, on which the trained
-discriminator will make predictions
-'''
-def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
-    regions = [None for l in DATA_RANGE]
-
-    iterator, pop_name = prediction_utils.get_iterator(trial_data)
-    regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE)
-
-    pop_indices = prediction_utils.POP_INDICES[pop_name]
-    # regions[2], _ =  prediction_utils.special_section(iterator, pop_indices["HLA"])
-
-    pos_indices = prediction_utils.load_indices(pos_sel_list)
-    pos_sel_regions = []
-    for index in pos_indices:
-        s_regions, _ = prediction_utils.special_section(iterator, index)
-        pos_sel_regions.extend(s_regions)
-    regions[3] = s_regions
-    
-    return regions, pop_name, iterator.num_samples
-
 # =============================================================================
 # LOAD FILES
 # =============================================================================
@@ -112,7 +91,8 @@ def plot_real(params, in_trial_data, files):
     pos_sel_list = sys.argv[3]
 
     DATA_RANGE = range(4)
-    regions, pop_name, num_samples = get_real_data(DATA_RANGE, in_trial_data, pos_sel_list)
+    regions, pop_name, num_samples = prediction_utils.get_real_data(\
+                                     DATA_RANGE, in_trial_data, pos_sel_list)
 
     generator = prediction_utils.get_generator(in_trial_data, num_samples=num_samples,
                                                seed=SEED)
@@ -151,8 +131,8 @@ ARGUMENTS: 5 files whose contents are lists of numpy arrays corresponding to
 the selection strengths: neutral (0.0), 0.01, 0.025, 0.05, 0.10
 '''
 def plot_selection(in_trial_data, files):
-    sel_paths = [sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7]]
-    regions = [SlimIterator(sel_path).real_batch() for sel_path in sel_paths]
+
+    regions = get_sel_data(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
 
     colors = SLIM_COLORS
     title_data = {"train": in_trial_data["pop"], "test": "SLiM"}
@@ -197,11 +177,11 @@ def plot_cross_disc(in_trial_data, files):
     COLORS = REAL_DATA_COLORS[test_pop_name]
     
     test_trial_data = in_trial_data.copy()
-    test_trial_data["h5"] = h5
+    test_trial_data["data_h5"] = h5
 
     title_data = {"train": in_trial_data["pop"], "test": test_pop_name}
 
-    regions, _, test_num_samples = get_real_data(DATA_RANGE, test_trial_data, pos_sel_list)
+    regions, _, test_num_samples = prediction_utils.get_real_data(DATA_RANGE, test_trial_data, pos_sel_list)
 
     generator = prediction_utils.get_generator(in_trial_data, num_samples=test_num_samples,
                                                seed=SEED)

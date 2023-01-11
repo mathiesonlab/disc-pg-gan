@@ -1,4 +1,9 @@
+'''
+Utils for use in seaborn_plot.py. These are mostly taken from ss_helpers.py, 
+but used separately to avoid the necessity of activating conda.
 
+Authors: Sara Mathieson, Rebecca Riley
+'''
 
 def parse_mini_lst(mini_lst):
     return [float(x.replace("[",'').replace("]",'').replace(",",'')) for x in
@@ -42,7 +47,7 @@ def parse_output(filename, return_acc=False):
             tokens = line.split()
             print(tokens)
             param_str = tokens[3][1:-2]
-            print("PARAMS", param_str)
+            rint("PARAMS", param_str)
             param_names = param_str.split(",")
             num_param = len(param_names)
             for i in range(num_param):
