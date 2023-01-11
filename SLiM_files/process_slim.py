@@ -10,10 +10,7 @@ from numpy.random import default_rng
 sys.path.insert(1, "../")
 import global_vars
 
-# params = {"Ne": 10000., "reco": 1.25e-8, "mut": 1.25e-8}
-# NEED TO USE EXP NE=N1
-params = {"Ne": 22552., "mut": 1.25e-8,
-          "reco_path": "/bigdata/smathieson/pg-gan/1000g/genetic_map/"}
+params = {"Ne": 22552., "mut": 1.25e-8, "reco_path": None, "reco_default": 1.25e-8}
 
 SEED = global_vars.DEFAULT_SEED
 
@@ -31,12 +28,19 @@ SEL = sys.argv[3]
 def main():
 
     # reco setupt---------------------------------------------
-    files = get_reco_files(params["reco_path"])
-    prior, weights = parse_hapmap_empirical_prior(files)
-    rng = default_rng(SEED)
-    def get_reco():
-        # draw_background_rate_from_prior
-        return rng.choice(prior, p=weights)
+    reco_path = params["reco_path"]
+
+    if reco_path:
+        files = get_reco_files()
+        prior, weights = parse_hapmap_empirical_prior(files)
+        rng = default_rng(SEED)
+        def get_reco():
+            # draw_background_rate_from_prior
+            return rng.choice(prior, p=weights)
+
+    else:
+        def get_reco():
+            return params["reco_default"]
     # --------------------------------------------------------
 
     # (n, 36, 198)

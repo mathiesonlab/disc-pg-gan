@@ -8,11 +8,6 @@ Date: 9/27/22
 import math
 import msprime
 
-# from stdpopsim
-import sps.engines
-import sps.species
-import sps.HomSap
-
 # our imports
 import global_vars
 import util
