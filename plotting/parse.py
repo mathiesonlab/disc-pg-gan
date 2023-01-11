@@ -47,7 +47,7 @@ def parse_output(filename, return_acc=False):
             tokens = line.split()
             print(tokens)
             param_str = tokens[3][1:-2]
-            rint("PARAMS", param_str)
+            print("PARAMS", param_str)
             param_names = param_str.split(",")
             num_param = len(param_names)
             for i in range(num_param):

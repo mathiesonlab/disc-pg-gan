@@ -55,8 +55,8 @@ def save_plot(data, colors, labels, output, title_data):
     plt.xlim(0, 1)
 
     plt.tight_layout()
-    # plt.savefig(output+".pdf", format='pdf', dpi=350)
-    plt.savefig(output+".png", dpi=300)
+    plt.savefig(output+".pdf", format='pdf', dpi=350)
+    # plt.savefig(output+".png", dpi=300)
 
 # =============================================================================
 # DATA PROCESSING
@@ -132,7 +132,7 @@ the selection strengths: neutral (0.0), 0.01, 0.025, 0.05, 0.10
 '''
 def plot_selection(in_trial_data, files):
 
-    regions = get_sel_data(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
+    regions = prediction_utils.get_sel_data(sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
 
     colors = SLIM_COLORS
     title_data = {"train": in_trial_data["pop"], "test": "SLiM"}
@@ -147,8 +147,6 @@ def plot_selection(in_trial_data, files):
 
         labels = ["neutral", "s=0.01", "s=0.025", "s=0.05", "s=0.10"]
         data = [None for s in labels] # same length
-
-        assert len(sel_paths) == len(labels)
 
         for i in range(len(regions)):
             data[i] = process_regions(trained_disc, regions[i])
