@@ -1,14 +1,14 @@
 initialize() {
 	
 	if (!exists("N1"))
-	   defineConstant("N1", 23231);
+	   defineConstant("N1", 9000);
 	if (!exists("N2"))
-	   defineConstant("N2", 29962);
+	   defineConstant("N2", 5000);
 
 	if (!exists("T1"))
-	   defineConstant("T1", 4870);
+	   defineConstant("T1", 2000);
 	if (!exists("T2"))
-	   defineConstant("T2", 581);
+	   defineConstant("T2", 350);
 
 	  defineConstant("T_forward", 20);
           defineConstant("T_growth", T1-T2+T_forward);
@@ -19,7 +19,7 @@ initialize() {
 	   defineConstant("L", 50000);
 
 	if (!exists("growth"))
-            defineConstant("growth", 0.005306199369532843);
+            defineConstant("growth", 0.005);
 
 	initializeTreeSeq();
 
