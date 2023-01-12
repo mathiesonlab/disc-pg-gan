@@ -189,7 +189,7 @@ def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
     return regions, pop_name, iterator.num_samples
                                                             
 def get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10):
-    sel_paths = ["neutral.txt", "sel_01.txt", "sel_025.txt", "sel_05.txt", "sel_10.txt"]
+    sel_paths = [neutral, sel_01, sel_025, sel_05, sel_10]
     regions = [SlimIterator(sel_path).real_batch(ALT_BATCH_SIZE) for sel_path in sel_paths]
     return regions
 

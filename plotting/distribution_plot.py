@@ -58,10 +58,8 @@ def save_seaborn_plot(data, colors, labels, output, title_data):
     plt.xlim(0, 1)
 
     plt.tight_layout()
-    # plt.savefig(output+".pdf", format='pdf', dpi=350)
-    plt.savefig(output+"new.png", dpi=300)
-
-    plt.clf()
+    plt.savefig(output+".pdf", format='pdf', dpi=350)
+    # plt.savefig(output+".png", dpi=300)
     
 # =============================================================================
 # VIOLIN PLOT UTILS
