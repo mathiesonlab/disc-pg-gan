@@ -20,6 +20,7 @@ import discriminator
 from parse import parse_output
 import prediction_utils
 
+ALT_BATCH_SIZE = 1000
 SEED = global_vars.DEFAULT_SEED
 
 # =============================================================================
