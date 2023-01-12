@@ -68,19 +68,21 @@ def main(generator, iterator, trained_disc, population_indices):
         print(str(probs_sim[i])+"\t"+str(probs_real[i])+"\t"+str(probs_HLA[i])+"\t"+str(probs_lactase[i]))
 
 def test_slim(disc):
+    batch_size = 5
+
     trained_disc = tf.saved_model.load(disc)
 
     DATA_RANGE = range(5)
     files = ["neutral.txt", "sel_01.txt", "sel_025.txt", "sel_05.txt", "sel_10.txt"]
 
-    regions = [SlimIterator(files[i]).real_batch(ALT_BATCH_SIZE) for i in DATA_RANGE]
+    regions = [SlimIterator(files[i]).real_batch(batch_size) for i in DATA_RANGE]
 
     predictions = [None for i in DATA_RANGE]
 
     for i in DATA_RANGE:
         predictions[i] = process_regions(trained_disc, regions[i])
 
-    for i in range(ALT_BATCH_SIZE):
+    for i in range(batch_size):
         print(predictions[0][i], predictions[1][i], predictions[2][i], predictions[3][i], predictions[4][i], sep=",")
         
 '''
@@ -188,7 +190,7 @@ def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
                                                             
 def get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10):
     sel_paths = ["neutral.txt", "sel_01.txt", "sel_025.txt", "sel_05.txt", "sel_10.txt"]
-    regions = [SlimIterator(sel_path).real_batch() for sel_path in sel_paths]
+    regions = [SlimIterator(sel_path).real_batch(ALT_BATCH_SIZE) for sel_path in sel_paths]
     return regions
 
 # =============================================================================
