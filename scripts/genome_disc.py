@@ -13,6 +13,8 @@ import random
 import sys
 import tensorflow as tf
 
+sys.path.insert(1, "../")
+
 # our imports
 import discriminator
 import global_vars

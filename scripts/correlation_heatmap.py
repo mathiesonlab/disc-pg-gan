@@ -13,6 +13,8 @@ import seaborn as sns
 from sklearn.cluster import AgglomerativeClustering
 import sys
 
+sys.path.insert(1, "../")
+
 # our imports
 import global_vars
 import ss_helpers

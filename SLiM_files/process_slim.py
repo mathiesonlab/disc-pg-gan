@@ -31,7 +31,7 @@ def main():
     reco_path = params["reco_path"]
 
     if reco_path:
-        files = get_reco_files()
+        files = get_reco_files(reco_path)
         prior, weights = parse_hapmap_empirical_prior(files)
         rng = default_rng(SEED)
         def get_reco():
