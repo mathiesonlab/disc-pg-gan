@@ -65,7 +65,7 @@ def disc_along_genome(iterator, input_folder, output_file):
             prev_chrom = curr_chrom
 
         # get the region of real data
-        region = iterator.real_region(neg1, region_len, start_idx=start_idx)
+        region = iterator.real_region(neg1, region_len, start_idx=start_idx, iterative=True)
 
         # compute hidden layer or probability
         if region is not None:

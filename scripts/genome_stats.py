@@ -52,7 +52,7 @@ def stats_along_genome(iterator, output_file):
             prev_chrom = curr_chrom
 
         # get the region of real data
-        region = iterator.real_region(neg1, region_len, start_idx=start_idx)
+        region = iterator.real_region(neg1, region_len, start_idx=start_idx, iterative=True)
 
         # compute summary stats
         if region is not None:

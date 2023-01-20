@@ -174,18 +174,22 @@ def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
     regions = [None for l in DATA_RANGE]
 
     iterator, pop_name = get_iterator(trial_data)
-    regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE)
 
     pop_indices = POP_INDICES[pop_name]
     regions[2], _ =  special_section(iterator, pop_indices["HLA"])
 
-    pos_indices = load_indices(pos_sel_list)
+    pos_indices, sel_dict = load_indices(pos_sel_list)
     pos_sel_regions = []
     for index in pos_indices:
         s_regions, _ = special_section(iterator, index)
         pos_sel_regions.extend(s_regions)
         regions[3] = np.array(pos_sel_regions)
 
+    hla_chrom, hla_start, hla_end = pop_indices["HLA"]
+    sel_mask[hla_chrom].append([hla_start, hla_end])
+    
+    regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE, alt_dict = sel_dict)
+        
     return regions, pop_name, iterator.num_samples
                                                             
 def get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10):
@@ -346,16 +350,22 @@ def load_indices(filepath):
     lines = open(filepath).readlines()
 
     indices = []
-
+    index_dict = {}
+    for i in global_vars.HUMAN_CHROM_RANGE:
+        index_dict[str(i)] = [] # set up mask dict
+    
     for l in lines:
         if l == "\n":
             continue
 
         chrom_str, start_str, end_str = l.split(',')
-        section_data = (int(chrom_str), int(start_str), int(end_str))
+        start_int, end_int = int(start_str), int(end_str)
+        section_data = (int(chrom_str), start_int, end_int)
         indices.append(section_data)
 
-    return indices
+        index_dict[chrom_str].append([start_int, end_int])
+
+    return indices, index_dict
 
 if __name__ == "__main__":
     pass
