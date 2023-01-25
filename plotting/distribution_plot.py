@@ -51,6 +51,9 @@ def plot_generic(ax, xlabel, ylabel, data, colors, labels): # copied from summar
     ax.legend()
 
 def save_seaborn_plot(data, colors, labels, output, title_data):
+    if not check_data(data):
+        return
+
     fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(7, 7))
     plot_generic(axes, "discriminator prediction", "density", data, colors, labels)
 
@@ -112,6 +115,18 @@ def get_params_trial_data(trial_file):
         files = [trial_file+"\n"] # add newline to be discarded, matches list format
         params, trial_data = parse_output(trial_file)
     return params, trial_data, files
+
+def check_data(data):
+    sentinel = data[0][0]
+    
+    for row in data:
+        if not np.all(np.array(row) == sentinel):
+            return True # not all data is same
+
+    print("WARNING: All of the data was classified as the same. Due to singular matrix,"+\
+          " the plot could not be produced.")
+    return False
+    
 
 # =============================================================================
 # LOAD FILES
