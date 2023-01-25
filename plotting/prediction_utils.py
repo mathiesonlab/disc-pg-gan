@@ -183,10 +183,11 @@ def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
     for index in pos_indices:
         s_regions, _ = special_section(iterator, index)
         pos_sel_regions.extend(s_regions)
-        regions[3] = np.array(pos_sel_regions)
+
+    regions[3] = np.array(pos_sel_regions)
 
     hla_chrom, hla_start, hla_end = pop_indices["HLA"]
-    sel_mask[hla_chrom].append([hla_start, hla_end])
+    sel_dict[hla_chrom].append([hla_start, hla_end])
     
     regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE, alt_dict = sel_dict)
         
@@ -307,7 +308,7 @@ def get_generator(trial_data, num_samples, seed=SEED, param_values=None):
 
 def get_iterator(trial_data):
     h5 = trial_data['data_h5']
-    iterator = real_data_random.RealDataRandomIterator(h5, trial_data['bed_file'], seed=SEED)
+    iterator = real_data_random.RealDataRandomIterator(h5, SEED, trial_data['bed_file'])
 
     pop_name = None
 

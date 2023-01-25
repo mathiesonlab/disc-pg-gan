@@ -14,6 +14,7 @@ from sklearn.cluster import AgglomerativeClustering
 import sys
 
 sys.path.insert(1, "../")
+sys.path.insert(2, "../plotting/")
 
 # our imports
 import global_vars

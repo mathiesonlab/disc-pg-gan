@@ -9,7 +9,7 @@ Date: 9/27/22
 from collections import defaultdict
 import h5py
 import numpy as np
-import random
+from numpy.random import default_rng
 import sys
 import datetime
 
@@ -119,8 +119,8 @@ def binary_search(q, lst):
 
 class RealDataRandomIterator:
 
-    def __init__(self, filename, bed_file=None, chrom_starts=False, seed=global_vars.DEFAULT_SEED):
-        random.seed(seed)
+    def __init__(self, filename, seed, bed_file=None, chrom_starts=False):
+        self.rng = default_rng(seed)
         
         callset = h5py.File(filename, mode='r')
         print(list(callset.keys()))
@@ -160,23 +160,21 @@ class RealDataRandomIterator:
         Based on the given start_idx and the region_len, find the end index
         """
         ln = 0
-        chr = self.chrom_all[start_idx]
+        chrom = global_vars.parse_chrom(self.chrom_all[start_idx])
         i = start_idx
         curr_pos = self.pos_all[start_idx]
         while ln < global_vars.L:
 
             if len(self.pos_all) <= i+1:
-                chr_str = chr.decode("utf-8") if isinstance(chr, bytes) else chr
-                print("not enough on chrom", chr_str)
+                print("not enough on chrom", chrom)
                 return -1 # not enough on last chrom
 
             next_pos = self.pos_all[i+1]
-            if self.chrom_all[i+1] == chr:
+            if global_vars.parse_chrom(self.chrom_all[i+1]) == chrom:
                 diff = next_pos - curr_pos
                 ln += diff
             else:
-                chr_str = chr.decode("utf-8") if isinstance(chr, bytes) else chr
-                print("not enough on chrom", chr_str)
+                print("not enough on chrom", chom)
                 return -1 # not enough on this chrom
             i += 1
             curr_pos = next_pos
@@ -188,7 +186,7 @@ class RealDataRandomIterator:
 
         if start_idx is None:
             # inclusive
-            start_idx = random.randrange(self.num_snps - global_vars.NUM_SNPS)
+            start_idx = self.rng.integers(0, self.num_snps - global_vars.NUM_SNPS)
 
         if region_len:
             end_idx = self.find_end(start_idx)
@@ -287,8 +285,8 @@ if __name__ == "__main__":
 
     # test file
     filename = sys.argv[1]
-    #bed_file = sys.argv[2]
-    iterator = RealDataRandomIterator(filename)#, bed_file)
+    bed_file = sys.argv[2]
+    iterator = RealDataRandomIterator(filename, global_vars.DEFAULT_SEED, bed_file)
 
     start_time = datetime.datetime.now()
     for i in range(100):
@@ -300,5 +298,5 @@ if __name__ == "__main__":
 
     # test find_end
     for i in range(10):
-        start_idx = random.randrange(iterator.num_snps-global_vars.NUM_SNPS)
+        start_idx = iterator.rng.integers(0, iterator.num_snps-global_vars.NUM_SNPS)
         iterator.find_end(start_idx)
