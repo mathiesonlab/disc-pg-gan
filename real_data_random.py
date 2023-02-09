@@ -20,7 +20,7 @@ import util
 class Region:
 
     def __init__(self, chrom, start_pos, end_pos):
-        self.chrom = chrom
+        self.chrom = str(chrom)
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.region_len = end_pos - start_pos # L
@@ -50,6 +50,7 @@ class Region:
                 part_inside = mask_lst[region_start_idx][1] - self.start_pos
             else:
                 part_inside = self.end_pos - mask_lst[region_start_idx][0]
+
             return part_inside/self.region_len >= frac_callable
 
         # different region index
@@ -71,7 +72,7 @@ class Region:
         # add on last if inside
         if end_inside:
             part_inside += (self.end_pos - mask_lst[region_end_idx][0])
-        elif self.end_pos <= mask_lst[region_start_idx][0]:
+        elif self.end_pos <= mask_lst[region_end_idx][0]:
             # end before closest region, don't add anything
             pass
         else:

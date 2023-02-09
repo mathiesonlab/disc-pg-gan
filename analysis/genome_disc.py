@@ -26,7 +26,7 @@ NUM_SNPS = global_vars.NUM_SNPS
 HIDDEN = False # if True, compute last hidden layer, o.w. compute probability
 
 def get_iterator(input_file, bed_file):
-    iterator = real_data_random.RealDataRandomIterator(input_file, bed_file)
+    iterator = real_data_random.RealDataRandomIterator(input_file, global_vars.DEFAULT_SEED, bed_file=bed_file)
     return iterator
 
 # simoid

@@ -347,13 +347,13 @@ def get_indices(iterator, chrom, start_pos, end_pos):
 For use in loading the extended list for positive selection
 Assumes format chrom,start,end
 '''
-def load_indices(filepath):
+def load_indices(filepath, pos_all):
     lines = open(filepath).readlines()
 
     indices = []
-    index_dict = {}
+    pos_sel_mask = {}
     for i in global_vars.HUMAN_CHROM_RANGE:
-        index_dict[str(i)] = [] # set up mask dict
+        pos_sel_mask[str(i)] = [] # set up mask dict
     
     for l in lines:
         if l == "\n":
@@ -364,9 +364,11 @@ def load_indices(filepath):
         section_data = (int(chrom_str), start_int, end_int)
         indices.append(section_data)
 
-        index_dict[chrom_str].append([start_int, end_int])
+        start_bp = pos_all[start_int]
+        end_bp = pos_all[end_int]
+        pos_sel_mask[chrom_str].append([start_bp, end_bp])
 
-    return indices, index_dict
+    return indices, pos_sel_mask
 
 if __name__ == "__main__":
     pass
