@@ -61,8 +61,9 @@ def parse_output(filename, return_acc=False):
             trial_data['pop'] = trial_data["data_h5"].split("/")[6][0:3] \
                 if trial_data["data_h5"] is not None else None
             trial_data['seed'] = clean_param_tkn(tokens[15])
+            trial_data['sample_size'] = clean_param_tkn(tokens[17])
             trial_data['disc'] = clean_param_tkn(tokens[-1])
-
+        
         elif "Epoch 100" in line:
             tokens = line.split()
             disc_loss = float(tokens[3][:-1])

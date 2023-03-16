@@ -236,4 +236,6 @@ def load_indices(filepath, pos_all, store=False, output=None):
     return indices, pos_sel_mask
 
 if __name__ == "__main__":
-    pass
+    infiles = sys.argv[1]
+    output = sys.argv[2]
+    store_generator_predictions(infiles, output)

@@ -10,10 +10,17 @@ import numpy as np
 import sys
 
 sys.path.insert(1, "../")
+
+from discriminator import OnePopModel
+from generator import Generator
+from global_vars import DEFAULT_SAMPLE_SIZE
 from parse import parse_output
 import prediction_utils
 import real_data_random
+import simulation
+import tensorflow as tf
 
+SIMULATED_BATCH_SIZE = 500
 
 # =============================================================================
 # COLOR SETTINGS
@@ -74,6 +81,24 @@ def process_regions(disc, regions, positions=None):
     probs = [get_prob(pred[0]) for pred in preds]
     return probs
 
+def process_outfiles(outfiles_list):
+    seed_param_disc_dict = {}
+    outfiles = open(outfiles_list).readlines()
+
+    for outfile in outfiles:
+        final_params, trial_data = parse_output(outfile[:-1])
+
+        trained_disc = tf.saved_model.load("saved_model/" + trial_data["disc"] + "/")
+        # trained_disc = OnePopModel(num_samples, saved_model=trained_disc)
+
+        seed_param_disc_dict[trial_data["seed"]] = final_params, trained_disc
+
+    sample_size = DEFAULT_SAMPLE_SIZE if trial_data["sample_size"] \
+        is None else trial_data["sample_size"]
+    generator = prediction_utils.get_generator(trial_data, sample_size)
+
+    return seed_param_disc_dict, generator
+
 # =============================================================================
 # LOAD FILES
 # =============================================================================
@@ -85,7 +110,9 @@ as a pdf or a png.
 Saves violin representations of the predictions on neutral test data and
 test data under selection.
 '''
-def plot_real(prediction_list, pos_sel_bed, use_pdf):
+def plot_real(prediction_list, outfiles_list, pos_sel_bed, use_pdf):
+    seed_param_disc_dict, generator = process_outfiles(outfiles_list)
+
     pos_sel_mask = real_data_random.read_mask(pos_sel_bed)
     pred_files = open(prediction_list).readlines()
 
@@ -93,9 +120,10 @@ def plot_real(prediction_list, pos_sel_bed, use_pdf):
     train_pop_name = tokens[-2]
     test_pop_name = tokens[-1]
 
-    labels = ["neutral ("+test_pop_name+")", "pos. sel. ("+test_pop_name+")"]
+    labels = ["simulated (msprime)", "neutral ("+test_pop_name+")", 
+        "pos. sel. ("+test_pop_name+")"]
     colors_all = REAL_DATA_COLORS[test_pop_name]
-    colors = [colors_all[1], colors_all[3]]
+    colors = [colors_all[0], colors_all[1], colors_all[3]]
     
     title_data = {"train": train_pop_name, "test": test_pop_name}
 
@@ -124,14 +152,20 @@ def plot_real(prediction_list, pos_sel_bed, use_pdf):
             else:
                 neutrals.append(pred)
 
-        save_violin_plot([neutrals, sels], colors, labels, outfile, title_data, use_pdf)
+        params, disc = seed_param_disc_dict[seed]
+        generator.update_params(params)
+        simulated_batch = generator.simulate_batch(SIMULATED_BATCH_SIZE)
+        sim_preds = process_regions(disc, simulated_batch)
+
+        save_violin_plot([sim_preds, neutrals, sels], colors, labels, outfile, title_data, use_pdf)
 
 if __name__ == "__main__":
     prediction_list = sys.argv[1]
-    pos_sel_bed = sys.argv[2]
+    outfiles_list = sys.argv[2]
+    pos_sel_bed = sys.argv[3]
 
     options = sys.argv[-1]
     use_pdf = ("png" not in options)
 
-    plot_real(prediction_list, pos_sel_bed, use_pdf)
+    plot_real(prediction_list, outfiles_list, pos_sel_bed, use_pdf)
 
