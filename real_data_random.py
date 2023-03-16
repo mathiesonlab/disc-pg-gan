@@ -222,12 +222,6 @@ class RealDataRandomIterator:
         chrom = global_vars.parse_chrom(start_chrom)
         region = Region(chrom, start_base, end_base)
         result = region.inside_mask(self.mask_dict)
-
-
-        inside_alt_mask = region.inside_mask(alt_dict)
-        
-        
-        inside_alt_mask = region.inside_mask(alt_dict)
         
         # if we do have an accessible region
         if result:
