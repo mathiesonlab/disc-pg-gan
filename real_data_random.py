@@ -21,8 +21,8 @@ class Region:
 
     def __init__(self, chrom, start_pos, end_pos):
         self.chrom = str(chrom)
-        self.start_pos = start_pos
-        self.end_pos = end_pos
+        self.start_pos = int(start_pos)
+        self.end_pos = int(end_pos)
         self.region_len = end_pos - start_pos # L
 
     def __str__(self):
@@ -182,8 +182,7 @@ class RealDataRandomIterator:
 
         return i # exclusive
 
-    def real_region(self, neg1, region_len, start_idx=None, iterative=False,
-                    alt_dict={}):
+    def real_region(self, neg1, region_len, start_idx=None, iterative=False):
 
         if start_idx is None:
             # inclusive
@@ -224,10 +223,14 @@ class RealDataRandomIterator:
         region = Region(chrom, start_base, end_base)
         result = region.inside_mask(self.mask_dict)
 
+
+        inside_alt_mask = region.inside_mask(alt_dict)
+        
+        
         inside_alt_mask = region.inside_mask(alt_dict)
         
         # if we do have an accessible region
-        if result and not inside_alt_mask:
+        if result:
             # if region_len, then positions_S is actually positions_len
             dist_vec = [0] + [(positions[j+1] - positions[j])/global_vars.L
                 for j in range(len(positions)-1)]
@@ -244,8 +247,7 @@ class RealDataRandomIterator:
                 return None # no recursion if walking through the genome
             return self.real_region(neg1, region_len)
 
-    def real_batch(self, batch_size = global_vars.BATCH_SIZE, neg1=True,
-                   region_len=False, alt_dict={}):
+    def real_batch(self, batch_size = global_vars.BATCH_SIZE, neg1=True, region_len=False):
         """Use region_len=True for fixed region length, not by SNPs"""
 
         if not region_len:
@@ -253,12 +255,12 @@ class RealDataRandomIterator:
                 global_vars.NUM_SNPS, 2), dtype=np.float32)
 
             for i in range(batch_size):
-                regions[i] = self.real_region(neg1, region_len, alt_dict=alt_dict)
+                regions[i] = self.real_region(neg1, region_len)
 
         else:
             regions = []
             for i in range(batch_size):
-                regions.append(self.real_region(neg1, region_len, alt_dict=alt_dict))
+                regions.append(self.real_region(neg1, region_len))
 
         return regions
 

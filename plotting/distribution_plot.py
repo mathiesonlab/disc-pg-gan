@@ -1,27 +1,19 @@
 """
-Create seaborn plot for discriminator predictions on
-(1) SLiM-generated under-selection data
-(2) Same population (as training) predictions (msprime, random, balancing/HLA, pos sel.)
-(3) Different population predictions ("")
+Create seaborn plot for discriminator predictions on real data
 Author: Rebecca Riley
-Date: 01/03/2023
+Date: 03/15/2023
 """
 
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import sys
-import tensorflow as tf
 
 sys.path.insert(1, "../")
-import global_vars
-import discriminator
 from parse import parse_output
 import prediction_utils
+import real_data_random
 
-ALT_BATCH_SIZE = 1000
-SEED = global_vars.DEFAULT_SEED
 
 # =============================================================================
 # COLOR SETTINGS
@@ -33,8 +25,6 @@ REAL_DATA_COLORS = {"CEU": ["grey", "dodgerblue", "midnightblue", "slateblue"],
                     "CHB": ["grey", "limegreen", "darkgreen", "olivedrab"],
                     "CHS": ["grey", "limegreen", "darkgreen", "olivedrab"]}
 
-SLIM_COLORS = ["grey", "pink", "salmon", "red", "darkred"]
-
 # =============================================================================
 # PLOT UTILS
 # =============================================================================
@@ -43,32 +33,7 @@ def get_title(title_data):
         train_pop=title_data["train"], test_pop=title_data["test"],
         seed=title_data["seed"])
 
-def plot_generic(ax, xlabel, ylabel, data, colors, labels): # copied from summary_stats.py
-    num_datasets = len(data)
-    for i in range(num_datasets):
-        sns.distplot(data[i], ax=ax, color=colors[i], label=labels[i])
-    ax.set(xlabel=xlabel, ylabel=ylabel)
-    ax.legend()
-
-def save_seaborn_plot(data, colors, labels, output, title_data):
-    if not check_data(data):
-        return
-
-    fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(7, 7))
-    plot_generic(axes, "discriminator prediction", "density", data, colors, labels)
-
-    plt.title(get_title(title_data))
-
-    plt.xlim(0, 1)
-
-    plt.tight_layout()
-    plt.savefig(output+".pdf", format='pdf', dpi=350)
-    # plt.savefig(output+".png", dpi=300)
-    
-# =============================================================================
-# VIOLIN PLOT UTILS
-# =============================================================================
-def save_violin_plot(data, colors, labels, output, title_data):
+def save_violin_plot(data, colors, labels, output, title_data, use_pdf):
     RANGE = range(len(colors))
 
     quantiles = []
@@ -90,12 +55,14 @@ def save_violin_plot(data, colors, labels, output, title_data):
     plt.ylabel("discriminator prediction")
     plt.title(get_title(title_data))
     plt.tight_layout()
-    plt.savefig(output+"_violin.pdf", format='pdf', dpi=350)
-    # plt.savefig(output+"_violin.png", format='png', dpi=300)
+
+    if use_pdf:
+        plt.savefig(output+"_violin.pdf", format='pdf', dpi=350)
+    else:
+        plt.savefig(output+"_violin.png", format='png', dpi=300)
 
     plt.clf() # important
-    
-    
+
 # =============================================================================
 # DATA PROCESSING
 # =============================================================================
@@ -107,186 +74,64 @@ def process_regions(disc, regions, positions=None):
     probs = [get_prob(pred[0]) for pred in preds]
     return probs
 
-def get_params_trial_data(trial_file):
-    if trial_file[-4:] == ".txt": # list of TRIAL FILES containing the data we want
-        files = open(trial_file, 'r').readlines()
-        params, trial_data = parse_output(files[0][:-1])
-    else:
-        files = [trial_file+"\n"] # add newline to be discarded, matches list format
-        params, trial_data = parse_output(trial_file)
-    return params, trial_data, files
-
-def check_data(data):
-    sentinel = data[0][0]
-    
-    for row in data:
-        if not np.all(np.array(row) == sentinel):
-            return True # not all data is same
-
-    print("WARNING: All of the data was classified as the same. Due to singular matrix,"+\
-          " the plot could not be produced.")
-    return False
-    
-
 # =============================================================================
 # LOAD FILES
 # =============================================================================
 '''
-Plots and saves discriminator predictions on real data from the same
-population that the discriminator was trained on
-
-ARGUMENTS: pos. sel. list for given population
+Accepts a file containing a list of prepared prediction files 
+(see analysis/genome_disc.py), a bed file corresponding to 
+positive selection in the test population, and a signal to save the final
+as a pdf or a png.
+Saves violin representations of the predictions on neutral test data and
+test data under selection.
 '''
-def plot_real(params, in_trial_data, files, violin_plot = False):
-    pos_sel_list = sys.argv[3]
+def plot_real(prediction_list, pos_sel_bed, use_pdf):
+    pos_sel_mask = real_data_random.read_mask(pos_sel_bed)
+    pred_files = open(prediction_list).readlines()
 
-    DATA_RANGE = range(4)
-    regions, pop_name, num_samples = prediction_utils.get_real_data(\
-                                     DATA_RANGE, in_trial_data, pos_sel_list)
+    tokens = pred_files[0].split('.')[-2].split("_")
+    train_pop_name = tokens[-2]
+    test_pop_name = tokens[-1]
 
-    generator = prediction_utils.get_generator(in_trial_data, num_samples=num_samples,
-                                               seed=SEED)
+    labels = ["neutral ("+test_pop_name+")", "pos. sel. ("+test_pop_name+")"]
+    colors_all = REAL_DATA_COLORS[test_pop_name]
+    colors = [colors_all[1], colors_all[3]]
+    
+    title_data = {"train": train_pop_name, "test": test_pop_name}
 
-    labels = ["msprime", pop_name+" (random)", "HLA ("+pop_name+")", \
-        "pos. sel. ("+pop_name+")"]
-
-    title_data = {"train": in_trial_data["pop"], "test": in_trial_data["pop"]}
-
-    predictions = [None for l in DATA_RANGE]
-    COLORS = REAL_DATA_COLORS[pop_name]
-
-    for f in files:
-        infile = f[:-1] # discard newline char
-        outfile = infile[:-4] + "_reals"
-
-        params, trial_data = parse_output(infile)
-
-        generator.update_params(params)
-        regions[0] = generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
-
-        title_data["seed"] = trial_data["seed"]
-
-        trained_disc = tf.saved_model.load("saved_model/" + trial_data["disc"] + "/")
-        trained_disc = discriminator.OnePopModel(num_samples, saved_model=trained_disc)
-
-        for i in DATA_RANGE:
-            predictions[i] = process_regions(trained_disc, regions[i])
-
-        if violin_plot:
-            save_violin_plot(predictions, COLORS, labels, outfile, title_data)
+    # iterate through each discriminator's predictions
+    for pred_file in pred_files:
+        name = pred_file.split('.')[-2].split("_")[-4]
+        if name[-2].isnumeric():
+            seed = name[-2:]
         else:
-            save_seaborn_plot(predictions, COLORS, labels, outfile, title_data)
+            seed = name[-1:]
 
-'''
-Plots and saves discriminator predictions on SLiM data provided by arguments
+        outfile = train_pop_name+"_"+test_pop_name+"_"+seed
+        title_data["seed"] = seed
 
-ARGUMENTS: 5 files whose contents are lists of numpy arrays corresponding to
-the selection strengths: neutral (0.0), 0.01, 0.025, 0.05, 0.10
-'''
-def plot_selection(in_trial_data, files, violin_plot = False):
-    regions = prediction_utils.get_sel_data(sys.argv[3], sys.argv[4], \
-        sys.argv[5], sys.argv[6], sys.argv[7])
+        predictions = np.loadtxt(pred_file[:-1], delimiter="\t")
 
-    colors = SLIM_COLORS
-    title_data = {"train": in_trial_data["pop"], "test": "SLiM"}
+        neutrals = []
+        sels = []
 
-    for f in files:
-        infile = f[:-1]
-        params, trial_data = parse_output(infile)
-        outfile = infile[:-4]+"_sel"
+        for row in predictions:
+            chrom, start, end, pred = row[0], row[1], row[2], row[3]
+            
+            region = real_data_random.Region(int(chrom), start, end)
+            if region.inside_mask(pos_sel_mask):
+                sels.append(pred)
+            else:
+                neutrals.append(pred)
 
-        title_data["seed"] = trial_data["seed"]
-        trained_disc = tf.saved_model.load("saved_model/"+trial_data["disc"]+"/")
-
-        labels = ["neutral", "s=0.01", "s=0.025", "s=0.05", "s=0.10"]
-        data = [None for s in labels] # same length
-
-        for i in range(len(regions)):
-            data[i] = process_regions(trained_disc, regions[i])
-
-        assert len(colors) == len(data)
-
-        if violin_plot:
-            save_violin_plot(data, colors, labels, outfile, title_data)
-        else:
-            save_seaborn_plot(data, colors, labels, outfile, title_data)
-
-'''
-Accepts an h5 and file/list of files corresponding to discriminators to test on
-the given h5 file
-
-ARGUMENTS: path to xpop h5 file, and pos. sel. list for xpop
-'''
-def plot_cross_disc(in_trial_data, files, violin_plot = False):
-    # setup ====================================================================
-    h5 = sys.argv[3]
-    pos_sel_list = sys.argv[4]
-
-    DATA_RANGE = range(4)
-
-    test_pop_name = h5.split("/")[6][0:3]
-
-    labels = ["msprime", test_pop_name+" (random)", "HLA ("+test_pop_name+")", \
-                      "pos. sel. ("+test_pop_name+")"]
-    COLORS = REAL_DATA_COLORS[test_pop_name]
-
-    test_trial_data = in_trial_data.copy()
-    test_trial_data["data_h5"] = h5
-
-    title_data = {"train": in_trial_data["pop"], "test": test_pop_name}
-
-    regions, _, test_num_samples = prediction_utils.get_real_data(\
-        DATA_RANGE, test_trial_data, pos_sel_list)
-
-    generator = prediction_utils.get_generator(in_trial_data, \
-        num_samples=test_num_samples, seed=SEED)
-
-    # iterate through discriminator list or load trial file ====================
-    for f in files:
-        trial_file = f[:-1] # get rid of newline char
-        params, train_trial_data = parse_output(trial_file)
-        disc_name = train_trial_data["disc"]
-
-        title_data["seed"] = train_trial_data["seed"]
-        outfile = "xpop_"+test_pop_name+"_"+disc_name
-
-        generator.update_params(params)
-        regions[0] = generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
-
-        trained_disc = tf.saved_model.load("saved_model/" + disc_name + "/")
-        trained_disc = discriminator.OnePopModel(test_num_samples, saved_model=trained_disc)
-
-        predictions = [None for i in DATA_RANGE]
-        for i in DATA_RANGE:
-            predictions[i] = process_regions(trained_disc, regions[i])
-
-        if violin_plot:
-            save_violin_plot(predictions, COLORS, labels, outfile, title_data)
-        else:
-            save_seaborn_plot(predictions, COLORS, labels, outfile, title_data)
+        save_violin_plot([neutrals, sels], colors, labels, outfile, title_data, use_pdf)
 
 if __name__ == "__main__":
-    type = sys.argv[1] # real,sel, or xpop,
-    trial_files = sys.argv[2]
-    params, trial_data, files = get_params_trial_data(trial_files)
+    prediction_list = sys.argv[1]
+    pos_sel_bed = sys.argv[2]
 
-    last_arg = sys.argv[-1]
-    violin_plot = (last_arg == "--violin")
+    options = sys.argv[-1]
+    use_pdf = ("png" not in options)
 
-    if "real" in type:
-        print("arguments: pos. sel. file")
-        plot_real(params, trial_data, files, violin_plot)
-    elif "sel" in type:
-        print("arguments: 5 files whose contents are lists of numpy arrays "+\
-            "corresponding to the selection strengths: neutral (0.0), 0.01, "+\
-            "0.025, 0.05, 0.10")
-        plot_selection(trial_data, files, violin_plot)
-    elif "xpop" in type:
-        print("arguments: xpop h5, and xpop pos. sel. file")
-        plot_cross_disc(trial_data, files, violin_plot)
-    else:
-        print("please provide \"real\", \"sel(ection)\", or \"xpop\" as the"+\
-            " first argument, and trial_file or .txt containing a list of "+\
-            "trial files as the second argument.\n"+\
-            "To create a violin plot instead, use --violin as the last argument.")
-        exit()
+    plot_real(prediction_list, pos_sel_bed, use_pdf)
+

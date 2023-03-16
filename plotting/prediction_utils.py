@@ -8,9 +8,7 @@ Date: 01/03/2023
 # python imports
 import math
 import numpy as np
-import random
 import sys
-import tensorflow as tf
 
 sys.path.insert(1, "../")
 
@@ -23,7 +21,6 @@ import util
 
 from generator import Generator
 from parse import parse_output
-from real_data_random import Region
 from slim_iterator import SlimIterator
 
 ALT_BATCH_SIZE = 1000
@@ -48,43 +45,6 @@ POP_INDICES = {"CEU": CEU_indices, "CHB": CHB_indices, "YRI": YRI_indices,
 # =============================================================================
 # PREDICTION FUNCTIONS
 # =============================================================================
-'''Load disc and print its predictions on msprime, random real, HLA, & lactase data'''
-def main(generator, iterator, trained_disc, population_indices):
-
-    generated_regions = generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
-    probs_sim = process_regions(trained_disc, generated_regions)
-
-    real_regions = iterator.real_batch(batch_size=ALT_BATCH_SIZE)
-    probs_real = process_regions(trained_disc, real_regions)
-
-    HLA_regions, HLA_pos = special_section(iterator, population_indices["HLA"])
-    probs_HLA = process_regions(trained_disc, HLA_regions, HLA_pos)
-
-    lactase_regions, lct_pos = special_section(iterator, population_indices["lactase"])
-    probs_lactase = process_regions(trained_disc, lactase_regions, lct_pos)
-
-    # print("sim\treal\tHLA\tlactase")
-    for i in range(ALT_BATCH_SIZE):
-        print(str(probs_sim[i])+"\t"+str(probs_real[i])+"\t"+str(probs_HLA[i])+"\t"+str(probs_lactase[i]))
-
-def test_slim(disc):
-    batch_size = 5
-
-    trained_disc = tf.saved_model.load(disc)
-
-    DATA_RANGE = range(5)
-    files = ["neutral.txt", "sel_01.txt", "sel_025.txt", "sel_05.txt", "sel_10.txt"]
-
-    regions = [SlimIterator(files[i]).real_batch(batch_size) for i in DATA_RANGE]
-
-    predictions = [None for i in DATA_RANGE]
-
-    for i in DATA_RANGE:
-        predictions[i] = process_regions(trained_disc, regions[i])
-
-    for i in range(batch_size):
-        print(predictions[0][i], predictions[1][i], predictions[2][i], predictions[3][i], predictions[4][i], sep=",")
-        
 '''
 Accepts an iterator (for the selected population), and tuple containing the
 chromosome number, and the hap data indices corresponding to the start and end
@@ -98,7 +58,7 @@ def special_section(iterator, section_data, max_size=None):
 
     regions_arr = []
     positions_arr = []
-    
+
     i = 0
 
     for start_idx in range(section_start_idx, final_end, NUM_SNPS):
@@ -110,7 +70,7 @@ def special_section(iterator, section_data, max_size=None):
         region, start_pos, end_pos = result
         regions_arr.append(region)
         positions_arr.append([chrom, start_pos, end_pos])
-        
+
         # for testing
         i += 1
         if max_size is not None and i >= max_size:
@@ -120,7 +80,7 @@ def special_section(iterator, section_data, max_size=None):
 
     regions = np.array(regions_arr)
     positions = np.array(positions_arr)
-    
+
     return regions, positions
 
 '''
@@ -134,7 +94,7 @@ def special_region(chrom, start_idx, iterator):
     # get bases to set up region object
     start_base = iterator.pos_all[start_idx]
     end_base = iterator.pos_all[end_idx]
-    region = Region(chrom, start_base, end_base)
+    region = real_data_random.Region(chrom, start_base, end_base)
     inside_mask = region.inside_mask(iterator.mask_dict)
 
     if not inside_mask:
@@ -146,8 +106,8 @@ def special_region(chrom, start_idx, iterator):
                      global_vars.L for j in range(len(positions)-1)]
 
     after = util.process_gt_dist(hap_data, dist_vec,
-                                                  real=True, neg1=True,
-                                                  region_len=False)
+                                 real=True, neg1=True,
+                                 region_len=False)
 
     return after, region.start_pos, region.end_pos
 
@@ -164,139 +124,37 @@ def process_regions(disc, regions, positions=None):
     return probs
 
 # =============================================================================
-# GET DATA
-# =============================================================================
-'''
-Returns an array of regions of different types, on which the trained
-discriminator will make predictions
-'''
-def get_real_data(DATA_RANGE, trial_data, pos_sel_list):
-    regions = [None for l in DATA_RANGE]
-
-    iterator, pop_name = get_iterator(trial_data)
-
-    pop_indices = POP_INDICES[pop_name]
-    regions[2], _ =  special_section(iterator, pop_indices["HLA"])
-
-    pos_indices, sel_dict = load_indices(pos_sel_list)
-    pos_sel_regions = []
-    for index in pos_indices:
-        s_regions, _ = special_section(iterator, index)
-        pos_sel_regions.extend(s_regions)
-
-    regions[3] = np.array(pos_sel_regions)
-
-    hla_chrom, hla_start, hla_end = pop_indices["HLA"]
-    sel_dict[hla_chrom].append([hla_start, hla_end])
-    
-    regions[1] = iterator.real_batch(batch_size=ALT_BATCH_SIZE, alt_dict = sel_dict)
-        
-    return regions, pop_name, iterator.num_samples
-                                                            
-def get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10):
-    sel_paths = [neutral, sel_01, sel_025, sel_05, sel_10]
-    regions = [SlimIterator(sel_path).real_batch(ALT_BATCH_SIZE) for sel_path in sel_paths]
-    return regions
-
-# =============================================================================
-# MEAN, VARIANCE ANALYSIS
-# =============================================================================
-def get_mean_variance(filepath, test_h5, test_pos_sel, neutral, sel_01, sel_025, sel_05, sel_10):
-    print("disc name,msprime (trial params) mean,msprime (trial params) var,"+\
-          "test pop (random) mean,test pop (random) var,HLA (test pop) mean,HLA (test pop) var,"+\
-          "pos. sel. (test pop) mean,pos. sel. (test pop) var,"+\
-          "SLiM neutral (mean),SLiM neutral (var),SLiM s=0.01 (mean),SLiM s=0.01 (var),"+\
-          "SLiM s=0.025 (mean),SLiM s=0.025 (var),SLiM s=0.05 (mean),SLiM s=0.05 (var),"+\
-          "SLiM s=0.10 (mean), SLiM s=0.10 (var)")
-
-    DATA_RANGE = range(9)
-
-    files = open(filepath).readlines()
-    
-    infile = files[0][:-1] # remove newline
-    final_params, trial_data =  parse_output(infile)
-    trial_data["data_h5"] = test_h5
-
-    real_regions, test_pop_name, test_num_samples = \
-        get_real_data(range(4), trial_data, test_pos_sel)
-
-    sel_regions = get_sel_data(neutral, sel_01, sel_025, sel_05, sel_10)
-    
-    generator = get_generator(trial_data,
-                                               num_samples = test_num_samples)
-
-    for f in files:
-        trial_file = f[:-1]
-        params, train_trial_data = parse_output(trial_file)
-        disc_name = train_trial_data["disc"]
-
-        generator.update_params(params)
-        real_regions[0] = generator.simulate_batch(batch_size=ALT_BATCH_SIZE)
-
-        trained_disc = tf.saved_model.load("saved_model/" + disc_name + "/")
-        converted_disc = discriminator.OnePopModel(test_num_samples, saved_model=trained_disc)
-
-        predictions = [None for i in DATA_RANGE]
-        num_real_regions = len(real_regions)
-
-        for i in range(num_real_regions):
-            predictions[i] = process_regions(converted_disc, np.array(real_regions[i]))
-
-        for j in range(len(sel_regions)):
-            predictions[j+num_real_regions] = process_regions(trained_disc, sel_regions[j])
-
-        p0 = np.array(predictions[0])
-        p1 = np.array(predictions[1])
-        p2 = np.array(predictions[2])
-        p3 = np.array(predictions[3])
-        p4 = np.array(predictions[4])
-        p5 = np.array(predictions[5])
-        p6 = np.array(predictions[6])
-        p7 = np.array(predictions[7])
-        p8 = np.array(predictions[8])
-
-        print(disc_name, np.mean(p0), np.var(p0),
-                         np.mean(p1), np.var(p1),
-                         np.mean(p2), np.var(p2),
-                         np.mean(p3), np.var(p3),
-                         np.mean(p4), np.var(p4),
-                         np.mean(p5), np.var(p5),
-                         np.mean(p6), np.var(p6),
-                         np.mean(p7), np.var(p7),
-                         np.mean(p8), np.var(p8), sep=",")
-            
-# =============================================================================
 # UTILITES
 # =============================================================================
 def get_generator(trial_data, num_samples, seed=SEED, param_values=None):
-
-    def get_sample_sizes(num_pops):
-        size = int(num_samples/num_pops)
-        return [size for i in range(num_pops)]
 
     # switch for model value
     model = trial_data['model']
     if model == 'const':
         simulator = simulation.simulate_const
-        sample_sizes = get_sample_sizes(1)
+        num_pops = 1
     elif model == 'exp':
         simulator = simulation.simulate_exp
-        sample_sizes = get_sample_sizes(1)
+        num_pops = 1
     elif model == 'im':
         simulator = simulation.simulate_im
-        sample_sizes = get_sample_sizes(2)
+        num_pops = 2
     elif model == 'ooa2':
         simulator = simulation.simulate_ooa2
-        sample_sizes = get_sample_sizes(2)
+        num_pops = 2
     elif model == 'ooa3':
         simulator = simulation.simulate_ooa3
-        sample_sizes = get_sample_sizes(3)
+        num_pops = 3
     elif model == 'post_ooa':
         simulator = simulation.postOOA
-        sample_sizes = get_sample_sizes(2)
+        num_pops = 2
     else:
         print("could not locate model. An error occured.")
         exit()
+
+    # sample size calculation
+    size = int(num_samples/num_pops)
+    sample_sizes = [size for i in range(num_pops)]
 
     generator = Generator(simulator, trial_data['params'].split(','), sample_sizes,\
                           seed=seed, mirror_real=True, reco_folder=trial_data['reco_folder'])
@@ -347,14 +205,18 @@ def get_indices(iterator, chrom, start_pos, end_pos):
 For use in loading the extended list for positive selection
 Assumes format chrom,start,end
 '''
-def load_indices(filepath, pos_all):
+def load_indices(filepath, pos_all, store=False, output=None):
     lines = open(filepath).readlines()
+
+    if store:
+        writer = open(output, 'w')
+        bed_formatter = "{}\t{}\t{}\n"
 
     indices = []
     pos_sel_mask = {}
     for i in global_vars.HUMAN_CHROM_RANGE:
         pos_sel_mask[str(i)] = [] # set up mask dict
-    
+
     for l in lines:
         if l == "\n":
             continue
@@ -367,6 +229,9 @@ def load_indices(filepath, pos_all):
         start_bp = pos_all[start_int]
         end_bp = pos_all[end_int]
         pos_sel_mask[chrom_str].append([start_bp, end_bp])
+
+        if store:
+            writer.write(bed_formatter.format("chr"+chrom_str, start_bp, end_bp))
 
     return indices, pos_sel_mask
 
