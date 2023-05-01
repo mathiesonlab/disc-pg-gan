@@ -81,6 +81,19 @@ def process_regions(disc, regions, positions=None):
     probs = [get_prob(pred[0]) for pred in preds]
     return probs
 
+def get_seed(name):
+    i = 0
+
+    while not name[i].isnumeric():
+        i += 1
+
+    seed = ""
+    while name[i].isnumeric():
+        seed = seed + name[i]
+        i += 1
+
+    return seed
+
 def process_outfiles(outfiles_list):
     seed_param_disc_dict = {}
     outfiles = open(outfiles_list).readlines()
@@ -129,12 +142,7 @@ def plot_real(prediction_list, outfiles_list, pos_sel_bed, use_pdf):
 
     # iterate through each discriminator's predictions
     for pred_file in pred_files:
-        name = pred_file.split('.')[-2].split("_")[-4]
-        if name[-2].isnumeric():
-            seed = name[-2:]
-        else:
-            seed = name[-1:]
-
+        seed = get_seed(pred_file)
         outfile = train_pop_name+"_"+test_pop_name+"_"+seed
         title_data["seed"] = seed
 

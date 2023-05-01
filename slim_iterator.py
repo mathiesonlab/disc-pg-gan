@@ -28,9 +28,6 @@ import util
 class SlimIterator:
 
     def __init__(self, file_list):
-        self.matrices, self.distances, \
-            self.matrices_regions, self.distances_regions = [], [], [], []
-
         file_names = open(file_list, 'r').readlines()
 
         for file_name in file_names:
@@ -38,46 +35,39 @@ class SlimIterator:
 
             if "regions" in file_name:
                 if "distances" in file_name:
-                    self.distances_regions.append(np.load(file_name))
+                    self.distances_regions = np.load(file_name)
                 elif "matrices" in file_name:
-                    self.matrices_regions.append(np.load(file_name))
+                    self.matrices_regions = np.load(file_name)
             elif "matrices" in file_name:
-                self.matrices.append(np.load(file_name))
+                self.matrices = np.load(file_name)
             elif "distances" in file_name:
-                self.distances.append(np.load(file_name))
+                self.distances = np.load(file_name)
             else:
                 print("warning: no match for "+file_name)
 
-        num_options = len(self.matrices)
-        opt_range = range(num_options)
+        self.num_samples = self.matrices.shape[2]
+        self.sample_sizes = [self.num_samples] # TODO: multipop models
 
-        self.options = np.array([i for i in opt_range])
-        self.num_samples = self.matrices[0].shape[2]
-
-        self.curr_arr_idx, self.curr_idx = 0, 0
+        self.curr_idx, self.region_len_idx = 0, 0
+        self.MAX_IDX = self.matrices.shape[0] - 1
 
     def real_region(self, neg1, region_len=False):
 
-        arr_idx = self.curr_arr_idx
-        index = self.curr_idx
-
-        self.increment_indices()
-
         if region_len:
-            gt_matrix = self.matrices_regions[arr_idx][index]
-            dist_vec = self.distances_regions[arr_idx][index]
+            gt_matrix = self.matrices_regions[self.region_len_idx]
+            dist_vec = self.distances_regions[self.region_len_idx]
 
             count=0
             for i in range(len(dist_vec)):
                 if dist_vec[i] != 0.0:
                     count += 1
-
-            # print(count)
             gt_matrix, dist_vec = trim_matrix(gt_matrix, dist_vec, count)
+            
         else:
-            gt_matrix = self.matrices[arr_idx][index]
-            dist_vec = self.distances[arr_idx][index]
+            gt_matrix = self.matrices[self.curr_idx]
+            dist_vec = self.distances[self.curr_idx]
 
+        self.increment_indices(region_len)
         after = util.process_gt_dist(gt_matrix, dist_vec, region_len=region_len, neg1=neg1, real=True)
 
         return after
@@ -106,15 +96,17 @@ class SlimIterator:
     def update_params(self, new_params):
         pass
 
-    def increment_indices(self):
-        if self.curr_idx == len(self.matrices[self.curr_arr_idx])-1: # last index in arr
-            if self.curr_arr_idx == self.options[-1]: # last array
-                self.curr_arr_idx = self.options[0]
+    def increment_indices(self, region_len):
+        if region_len:
+            if self.region_len_idx == self.MAX_IDX: # last index in arr
+                self.region_len_idx = 0 # start at the beginning of the array
             else:
-                self.curr_arr_idx += 1
-            self.curr_idx = 0 # start at the beginning of the array
+                self.region_len_idx += 1
         else:
-            self.curr_idx += 1
+            if self.curr_idx == self.MAX_IDX: # last index in arr
+                self.curr_idx = 0 # start at the beginning of the array
+            else:
+                self.curr_idx += 1
 
 def trim_matrix(gt_matrix, dist_vec, goal_snps):
     excess_size = len(dist_vec)

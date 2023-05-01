@@ -148,7 +148,7 @@ def parse_args(in_file_data = None, param_values = None):
     parser.add_option('-v', '--param_values', type='string',
         help='comma separated values corresponding to params')
     parser.add_option('--SLiM', type='string', dest='slim',
-        help='flag to use SLiM iterator')
+        help='Use SLiM iterator constructed with files on list')
     parser.add_option('--disc', type='string', dest='disc',
         help='location to store discriminator')
 

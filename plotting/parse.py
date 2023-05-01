@@ -17,7 +17,7 @@ def add_to_lst(total_lst, mini_lst):
 def parse_output(filename, return_acc=False):
     """Parse pg-gan output to find the inferred parameters"""
 
-    def clean_param_tkn(s):
+    def clean_param_tkn(s, cast_int=False):
         if s == 'None,':
             return None # this is a common result (not an edge case)
         
@@ -25,7 +25,10 @@ def parse_output(filename, return_acc=False):
              # no need to remove quotation marks, just comma
             return s[:-1] # only used as a label, so ok to leave as str
             
-        return s[1:-2]
+        result = s[1:-2]
+        if cast_int:
+            return int(result)
+        return result
 
     f = open(filename,'r')
 
@@ -58,10 +61,10 @@ def parse_output(filename, return_acc=False):
             trial_data['data_h5'] = clean_param_tkn(tokens[5])
             trial_data['bed_file'] = clean_param_tkn(tokens[7])
             trial_data['reco_folder'] = clean_param_tkn(tokens[9])
-            trial_data['pop'] = trial_data["data_h5"].split("/")[6][0:3] \
+            trial_data['pop'] = trial_data["data_h5"].split("/")[5][0:3] \
                 if trial_data["data_h5"] is not None else None
             trial_data['seed'] = clean_param_tkn(tokens[15])
-            trial_data['sample_size'] = clean_param_tkn(tokens[17])
+            trial_data['sample_size'] = clean_param_tkn(tokens[17], cast_int=True)
             trial_data['disc'] = clean_param_tkn(tokens[-1])
         
         elif "Epoch 100" in line:

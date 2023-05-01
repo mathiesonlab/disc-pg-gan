@@ -175,7 +175,7 @@ class RealDataRandomIterator:
                 diff = next_pos - curr_pos
                 ln += diff
             else:
-                print("not enough on chrom", chom)
+                print("not enough on chrom", chrom)
                 return -1 # not enough on this chrom
             i += 1
             curr_pos = next_pos

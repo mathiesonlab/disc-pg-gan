@@ -19,6 +19,8 @@ TRIAL_DATA = { 'model': 'const', 'params': 'N1', 'data_h5': None,
                'bed_file': None, 'reco_folder': None, 'param_values': '1000'}
 
 # section C: summary stats customization----------------------------------------
+SS_SHOW_TITLE = False
+
 COLOR_DICT = {"YRI": "darkorange","CEU": "blue","CHB": "green", "MXL": "red",
               "ESN": "darkorange", "GBR": "blue", "CHS": "green",
               "simulation": "gray", "msprime": "purple", "SLiM": "gray"}
@@ -30,24 +32,30 @@ Override by commenting out the function body,
 and adding in your definitions. Leave the assert
 at the end.
 '''
-def update_ss_labels(data_h5, iterator_type, generator_type):
+def update_ss_labels(pop_names, generator_type, num_pops = 1):
     # SS_LABELS is a list of string labels, ex ["CEU", "YRI", "CHB", "simulation"]
     # or ["msprime", "SLiM"]
-    pop_names = data_h5.split("/")[-1].split(".")[0] if data_h5 is not None else ""
+    if pop_names == "":
+        if num_pops == 1:
+            pop_labels = ["msprime"]
+        else: # works for up to 7 populations
+            pop_labels = [None  for i in range(num_pops)]
+            ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVQXYZ"
+            ALT_COLORS = ["red", "blue", "darkorange", "green",
+                          "purple", "pink", "navy"]
 
-    is_slim_iterator = lambda t: "slim" in str(t).lower()
-    is_generator = lambda t: "generator" in str(t).lower()
-    SLiM = "SLiM"
+            for i in range(num_pops):
+                name = "POP_"+ALPHABET[i]
+                pop_labels[i] = name
+                COLOR_DICT[name] = ALT_COLORS[i]
 
-    if is_slim_iterator(iterator_type):
-        SS_LABELS.append(SLiM)
-    elif is_generator(iterator_type):
-        SS_LABELS.append("msprime") # for pg-gan simulation trials
     else:
-        SS_LABELS.extend(pop_names.split("_"))
+        pop_labels = pop_names.split("_")[0:num_pops]
 
-    if is_slim_iterator(generator_type):
-        SS_LABELS.append(SLiM)
+    SS_LABELS.extend(pop_labels)
+
+    if "slim" in str(generator_type).lower():
+        SS_LABELS.append("SLiM")
     else:
         SS_LABELS.append("simulation")
 
