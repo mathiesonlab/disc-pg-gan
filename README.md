@@ -46,56 +46,27 @@ python3 pg_gan.py ... > CHB_exp_trial1.out
 ~~~
 
 ## Generating SLiM files
-One way we validate the ability of the trained discriminator to detect selection is to have it predict on SLiM-generated regions that have been simulated under selection.
+One way we validate the ability of the trained discriminator to detect selection is to have it predict on SLiM-generated regions that have been simulated under selection. We recommend using the Mathieson Lab's `slim_selection_simulation` repository for this task, which requires the following information:
 
-A warning, the parameters necessary to simulate most human populations tend to reach the upper limit (or surpass) the computation ability of SLiM, so it is common for such `SLiM` trials to crash.
+1. A set of recombination map files (the same type used in `pg-gan`)
+2. A `SLiM` file describing a model corresponding to your `pg-gan` model: `const` and `exp` are provided in `slim_selection_simulation/slim_scripts`. Because `SLiM` is a forward simulator, converting from msprime (a backwards simulator) models is nontrivial, so for custom models, it is recommended that you read the Messer Lab's `SLiM` documentation. See the aside "Verifying..." on how to validate that your `SLiM` model matches your msprime model. The provided `const` and `exp` `SLiM` models have already been validated. It is recommended that you start with a neutral model, validate it, and then edit a copy of the model to simulate selection (see the `const_selection.slim` and `exp_selection.slim` files for an example of introducing recent selection.)
+3. A `SLiM`-compatible set of parameters for your model. It is recommended that you use `pg-gan` to get a set of parameters that match your population, so see the `pg-gan` README as needed. A warning, the parameters necessary to simulate most human populations tend to reach the upper limit (or surpass) the computation ability of SLiM, so it is common for such `SLiM` trials to crash. At  section 2 of `slim_selection_simulation`, run a small batch size (1-5 trees) to confirm that `SLiM` can run. If the process is `killed`, the program will exit without producing the whole number of trees. See he aside "Reducing SLiM crashing" for solutions to ths issue.
 
-To generate regions in `SLiM`, be sure that your `SLiM` model matches the model you are simulating with `msprime` in `pg-gan`: matching const and exp models are provided as `const_neutral.slim` and `exp_neutral.slim`. See the aside "Verifying your..." below for more information.
-
-Follow the `pg-gan` instructions to get a set of parameters that match your population. Confirm that these are a good match using `summary_stats.py`, as described in the `pg-gan` README. Edit your SLiM file to use your parameters. For the provided `SLiM` models, these parameters are declared at the beginning of the file.
-As mentioned before, it is very possible that `SLiM` will crash under your given parameters. Run `SLiM` once to confirm that it will not crash: for example:
-~~~
-slim -d outpath=\"sample.trees\" exp_neutral.slim
-~~~
-See the aside "Reducing SLiM crashing" to resolve this. Likewise, check your selection `.slim` files, under selection strengths of s=0.01, 0.025, 0.05, and 0.10.
-The given `exp` model `SLiM` file runs with the following code:
-~~~
-slim -d outpath=\"sample.trees\" -d sel=0.01 exp_selection.slim
-~~~
-Where the `sel` argument accepts the selection strength.
-Remove the `.trees` files when done.
-
-The python file `make_bases.py` will generate the sets of 100 regions. Run this file with the argument of the SLiM file that you want to run, followed by the prefix with which to save your regions, for example:
-~~~
-python3 make_bases.py exp_neutral.slim exp_neutrals 0.0
-~~~
-will produce the output
-~~~
-exp_neutrals_matrices_100.npy
-exp_neutrals_matrices_regions_100.npy
-exp_neutrals_distances_100.npy
-exp_neutrals_distances_regions_100.npy
-~~~
-
-It is important that the suffixes of the files are not changed.
-In addition to a set of neutral regions, you want to generate regions under selection strengths of s=0.01, 0.025, 0.05, and 0.10. The third argument of `makes_bases.py` is the chosen selection strength, so run, for example s=0.01:
-~~~
-python3 make_bases.py exp_selection.slim exp_sel_01 0.01
-~~~
-
-It is sufficient to have 100 regions of each selection strength for the seaborn plots.
+With these three pieces of data (recombination map files, a `SLiM` model file, and a set of parameters,) you can run `slim_selection_simulation`. Each complete run of `slim_selection_simulation` will generate four numpy files, and it is recommended that you generate one set of neutral regions, and one set for each of the following selection strengths: 0.01, 0.025, 0.05, and 0.10, for a total of 20 numpy files. It is possible that some selection strengths will induce crashing in SLiM, so check every strength before generating large batches. It is sufficient to have 100 regions of each selection strength for the seaborn plots.
 
 ### Aside: Verifying your SLiM model's accuracy
-You can confirm that your SLiM model matches your `msprime` model by generating a small number (say, 100) of regions (see below) with a specific set of params via SLiM, using `summary_stats.py`. Check the main `pg-gan.py` README (linked above) to confirm that you have the right dependencies.
-Then, open `global_vars.py` change the variable `OVERWRITE_TRIAL_DATA` to `True`, and change the contents of the `TRIAL_DATA` dictionary to match your model and parameters. Leave `data_h5`, `bed_file`, and `reco_folder` as `None`. Open `summary_stats.py` and change `NUM_TRIALS` to the number of SLiM regions you have (probably 100.)
-Run `summary_stats.py` with an default value as the first argument (it will not be used) and the outfile path as the second argument. For example:
+You can confirm that your (neutral) SLiM model matches your `msprime` model using `summary_stats.py`. Check the main `pg-gan.py` README (linked above) to confirm that you have the right dependencies.
+First, generate a small batch data (100 trees) following the `slim_selection_simulation` README with your chosen model and a "default" choice of parameters (does not have to be necessarially realistic, but should be efficient.) As described in the repository, this will output four numpy files. Use `ls *_SUFFIX.npy > SUFFIX_numpy_files.txt` to save a list of these files.
+Now, open `global_vars.py` change the variable `OVERWRITE_TRIAL_DATA` to `True`, and change the contents of the `TRIAL_DATA` dictionary to match your model and the chosen parameters. Leave `data_h5`, `bed_file`, and `reco_folder` as `None`. Open `summary_stats.py` and change `NUM_TRIALS` to the number of SLiM regions you have (ex. 100.)
+
+Run `summary_stats.py` with an default value as the first argument (it will not be used), the outfile image path as the second argument, followed by the flag `--SLiM` (case-sensitive) with your numpy file list as the argument. For example:
 ~~~
-python3 summary_stats.py sample.out test_msprime_slim.png
+python3 summary_stats.py sample.out test_msprime_slim.png --SLiM SUFFIX_numpy_files.txt
 ~~~
-Confirm that the summary stats are sufficiently similar. Undo the above changes when done.
+The runtime is linearly correlated with `NUM_TRIALS` but should not take more than a few minutes to run. Confirm that the summary stats are sufficiently similar. Revert the above changes when done.
 
 ### Aside: Reducing SLiM crashing
-`SLiM` usually crashes due to the population size becoming too large. Test this resolution by changing your parameter values in SLiM. For the `exp` model, this issue is often the `growth` parameter. In your `pg-gan` file, open `util.py` and lower the selected parameter's upper limit accordingly (under the exp model, try decreasing the upper limit of `growth` from 0.05 to 0.01.) Re-run (several trials of) `pg-gan` to obtain new parameters. We have also decreased the upper limit of `T2`, under the `exp` model, in order to run `SLiM`, for some populations. It is not usually difficult to get paramaters that are a good fit for your population, despite these changes.
+`SLiM` usually crashes due to the population size becoming too large. Test this resolution by changing your parameter values in SLiM. For the `exp` model, this issue is often the `growth` parameter. In your `pg-gan` file, open `param_set.py` and lower the selected parameter's upper limit accordingly (under the exp model, try decreasing the upper limit of `growth` from 0.05 to 0.01.) Re-run (several trials of) `pg-gan` to obtain new parameters. We have also decreased the upper limit of `T2`, under the `exp` model, in order to run `SLiM`, for some populations. It is not usually difficult to get paramaters that are a good fit for your population, despite these changes.
 It is not necessary to use the `SLiM`-compatible parameters in your discriminator analyses.
 
 ## Generating distribution plots
@@ -167,3 +138,26 @@ To build a heatmap for the predictions of discriminator "disc1", trained on popu
 ~~~
 python3 correlation_heatmap.py output/correlation/pop_B_summary_stats.npy output/correlation/hidden_train_pop_A_test_pop_B_disc1.npy figures/discriminator/heatmaps/train_pop_A_test_pop_B_disc1.pdf "sample_title"
 ~~~
+
+## Gene analysis of prediction files
+Given a set of files detailing discriminator prediction values on genome regions, `match_sig_genes.py` allows for the imediate overlay of known genes intersecting the given region, reducing the need for slow, manual lookups. This script relies on the presence of a tab-separated "refseq" file, whose columns are chromosome number, start base pair position, end base pair position, and the gene name, allowing for non-uniqueness of gene name entries. Be sure that this file is sorted in genome order, or edit the beginning of `from_refseq.py` so that `PRESORTED=False`. 
+
+For a single file of "voted top hits" (generated via ...) confirm that the main function of `match_sig_genes.py` has the `match_genes` commented in, and `consolidate_disc_gene_results` commented out (the latter is for sets of discriminator predictions, and is described below.) Then, simply run the the python script, with your file of "voted top hits" as the first argument, your out file path as the second argument, and the (sorted) refseq file as the final argument. 
+~~~
+python match_sig_genes.py prob_voting_ABC_tophits.txt outfile_ABC_voting.tsv refseq_sorted.txt
+~~~
+As a default, an additional row will be filled in showing genes within `RANGE` (default 100kbp) of the given region. You can change this value, defined at the top of the file, as you would like, or eliminate this calculation by setting `RANGE = None`.
+
+For a set of indivudal discriminator predictions (generated via ...), the script can overlay intersecting genes to regions, and also consolidate discriminator predictions into one file. Confirm that the `match_genes` function has been disabled and `consolidate_disc_gene_results` has been enabled from within the main function. Then, use `ls pred_ABC_*_tophits.txt > pred_ABC_tophits_files_list.txt` to generate a list of your individual prediction files, and run the function with the file list as the first argument, the out file path as the second argument, and the (sorted) refseq as the final argument:
+~~~
+python match_sig_genes.py pred_ABC_tophits_files_list.txt outfile_ABC_tophits_consolidation.tsv refseq_sorted.txt
+~~~
+The out file displays the region data, the region's average prediction across all discriminators for whom the region was significant, the number of discriminators that found the region significant, and the genes that overlapped the region.
+
+### Aside: overlaying past lookup data
+If you already have regions *from the same genome windows* with gene data (ie manual lookups,) you can use the `match_sig_genes.py` script to apply that data to your current selection as well. Edit the script's main function, so that below the `infile = sys.argv[1], outfile = sys.argv[2]` statements, `parse_gene_dict_from_tsv` is called with the infile and outfile as arguments. Comment out the remaining code in the main function (be sure to uncomment it to run `match_genes` or `consolidate_disc_gene_results`.) Adjust the index definitions at the beginning of `parse_gene_dict_from_tsv` to correspond to your input file. The python script will now save the gene data from your file to a `json` file, with chromsome number and start position keys, and gene name values, for constant-time lookups. Run the program with your input file as the first argument, and a path to output the json file as the second argument. 
+~~~
+python match_sig_genes.py my_manual_gene_lookup_data.tsv my_manual_gene_lookup_data.json
+~~~
+
+This file can be used to either substitute the refseq file in calls to `match_genes` or `consolidate_disc_gene_results`, or as a companion. If the file is being used as a companion to the refsequence file, then *the json file must be listed before the refsequence file in the program arguments.*
