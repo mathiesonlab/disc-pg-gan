@@ -12,6 +12,7 @@ Date 06/12/2023
 '''
 
 import numpy as np
+import sys
 
 class Sel_Region:
     def __init__(self, name, chrom, start_pos, end_pos):
@@ -64,31 +65,21 @@ def load_genes(path, pop_name):
     return gene_data
 
 def get_sel_genes(region_chrom, region_start, region_end, sel_data_dict):
-    if region_start == -1:
-        region_start = float('-inf')
-    if region_end == -1:
-        region_end = float('inf')
+    gene_not_found = ""
 
-    genes_on_chrom = sel_data_dict[region_chrom]
+    genes_on_chrom = sel_data_dict[region_chrom] # ordered list
 
-    curr_gene = None
-    curr_min = float('inf')
-    # linear search bc there aren't enough values to warrant the
-    # trouble of (writing) a binary search
+    # linear search
     for gene in genes_on_chrom:
-        start_diff = abs(gene.start_pos-region_start)
-        end_diff = abs(region_end-gene.end_pos)
+        if region_start > gene.end_pos: # too early
+            continue
+        if region_end < gene.start_pos:
+            return gene_not_found
+        # interior
+        return gene.name
+    return gene_not_found
 
-        if start_diff > curr_min and end_diff > curr_min:
-            break
-
-        if start_diff < curr_min:
-            curr_gene = gene
-            curr_min = start_diff
-        if end_diff < curr_min:
-            curr_gene = gene
-            curr_min = start_diff
-
-    inside = 1 if curr_min <= 0 else 0
-
-    return curr_gene.name
+if __name__ == "__main__":
+    path = sys.argv[1]
+    pop = sys.argv[2]
+    sel_dict = load_genes(path, pop)

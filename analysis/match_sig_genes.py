@@ -17,7 +17,7 @@ RANGE = 100000 # None
 # helpers ----------------------------------------------------------------------
 get_chrom_start_end_pred = lambda row: (row[0], row[1], row[2], row[3])
 
-OUTPUT_FORMAT ="{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n" # extra space for copyable
+OUTPUT_FORMAT ="{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n" # extra space for copyable
 # COPYABLE = "{}:{}-{}" # the format for ucsc genome browser lookups
 
 # gene maching functions -------------------------------------------------------
@@ -49,7 +49,8 @@ def consolidate_disc_gene_results(disc_files_path, outpath, optional_json=None,
     gene_idx = 2
     range_gene_idx = 3
     known_sel_idx = 4
-    num_disc_idx = 5
+    known_sel_range_idx = 5
+    num_disc_idx = 6
 
     # iterate through every file and check the givne regions
     for disc_path in disc_files_paths:
@@ -74,9 +75,11 @@ def consolidate_disc_gene_results(disc_files_path, outpath, optional_json=None,
                 gene_data[chrom][start_pos][num_disc_idx] = num_discs_new
             else:
                 # do lookup and store results even if they're blank, to save time on future lookups
-                genes, range_genes, sel_genes = region_lookup(chrom, start_pos, end_pos,
-                    json_dict, refseq_dict, sel_data_dict)
-                data = [end_pos, pred_value, genes, range_genes, sel_genes, 1]
+                genes, range_genes, sel_genes, sel_genes_range = \
+                    region_lookup(chrom, start_pos, end_pos, json_dict,
+                    refseq_dict, sel_data_dict)
+                data = [end_pos, pred_value, genes, range_genes, sel_genes,
+                    sel_genes_range, 1]
                 if chrom in gene_data:
                     gene_data[chrom][start_pos] = data
                 else:
@@ -87,7 +90,8 @@ def consolidate_disc_gene_results(disc_files_path, outpath, optional_json=None,
     # Part 2: writing out results
     writer = open(outpath, 'w')
     writer.write(OUTPUT_FORMAT.format("chrom", "start bp", "end pos",
-        "avearge pred value", "genes", "range genes", "sel genes", "num discs")) # header
+        "avearge pred value", "refseq genes", " refseq range genes",
+        "sel genes", "sel genes range", "num discs")) # header
 
     for chrom in gene_data:
         for start_pos in gene_data[chrom]:
@@ -99,7 +103,7 @@ def consolidate_disc_gene_results(disc_files_path, outpath, optional_json=None,
 
             writer.write(OUTPUT_FORMAT.format(chrom, start_pos, data[end_idx],
                 data[pred_idx], data[gene_idx], data[range_gene_idx],
-                data[known_sel_idx], data[num_disc_idx]))
+                data[known_sel_idx], data[known_sel_range_idx], data[num_disc_idx]))
     writer.close()
 
 '''
@@ -122,16 +126,16 @@ def match_genes(inpath, outpath, optional_json=None, optional_refseq=None,
     data_reader = open(inpath, 'r')
     writer = open(outpath, 'w')
     writer.write(OUTPUT_FORMAT.format("chrom", "start bp", "end pos",
-        "pred value", "genes", "genes range", "sel genes", "")) # header
+        "pred value", "genes", "genes range", "sel genes", "sel genes range", "")) # header
 
     for row in data_reader:
         chrom, start_pos, end_pos, pred_value = \
             get_chrom_start_end_pred(row[:-1].split('\t'))
-        genes, genes_range, sel_genes = region_lookup(chrom, start_pos, end_pos,
-            json_dict, refseq_dict, sel_data_dict)
+        genes, genes_range, sel_genes, sel_genes_range = region_lookup(chrom,
+            start_pos, end_pos, json_dict, refseq_dict, sel_data_dict)
 
         writer.write(OUTPUT_FORMAT.format(chrom, start_pos, end_pos, pred_value,
-            genes, genes_range, sel_genes, ""))
+            genes, genes_range, sel_genes, sel_genes_range, ""))
 
     data_reader.close()
     writer.close()
@@ -189,9 +193,14 @@ def region_lookup(chrom, start_pos, end_pos, json_dict=None, refseq_dict=None,
     genes = ""
     range_genes = ""
     sel_genes = ""
+    sel_genes_range = ""
     chrom_int = int(chrom)
     start_pos_int = int(start_pos)
     end_pos_int = int(end_pos)
+
+    if RANGE:
+        start_pos_range = start_pos_int - RANGE
+        end_pos_range = end_pos_int + RANGE
 
     # json lookups are O(1)
     if json_dict and chrom in json_dict and start_pos in json_dict[chrom]:
@@ -204,18 +213,18 @@ def region_lookup(chrom, start_pos, end_pos, json_dict=None, refseq_dict=None,
         genes = pretty_format_list_to_str(refseq_genes, genes)
 
         if RANGE:
-            start_pos_int = start_pos_int - RANGE
-            end_pos_int = end_pos_int + RANGE
-            refseq_genes_range = refseq_dict[chrom].get(start_pos_int, end_pos_int)
-
-            if refseq_genes_range != []:
-                range_genes = pretty_format_list_to_str(refseq_genes_range)
+            refseq_genes_range = refseq_dict[chrom].get(start_pos_range, end_pos_range)
+            range_genes = pretty_format_list_to_str(refseq_genes_range)
 
     if sel_data_dict and chrom_int in sel_data_dict:
         sel_genes = selection_data.get_sel_genes(chrom_int, start_pos_int,
             end_pos_int, sel_data_dict)
 
-    return genes, range_genes, sel_genes
+        if RANGE:
+            sel_genes_range = selection_data.get_sel_genes(chrom_int,
+                start_pos_range, end_pos_range, sel_data_dict)
+
+    return genes, range_genes, sel_genes, sel_genes_range
 
 '''
 given a tsv, parses gene data and stores it as a json with chrom and start
@@ -246,7 +255,11 @@ def parse_gene_dict_from_tsv(tsv_path, outpath):
     writer.close()
 
 def get_pop(infile):
-    for pop in ["YRI", "CHB", "CEU"]:
+    # different
+    if "CHB" in infile:
+        return "CHBJPT"
+
+    for pop in ["YRI", "CEU"]:
         if pop in infile:
             return pop
 
@@ -274,6 +287,8 @@ def parse_args():
 
 if __name__ == "__main__":
     opts = parse_args()
-    # match_genes(opts.infile, opts.outfile, opts.json, opts.refseq, opts.sel)
-    consolidate_disc_gene_results(opts.infile, opts.outfile, opts.json,
-        opts.refseq, opts.sel)
+
+    # parse_gene_dict_from_tsv(opts.infile, opts.outfile)
+    match_genes(opts.infile, opts.outfile, opts.json, opts.refseq, opts.sel)
+    # consolidate_disc_gene_results(opts.infile, opts.outfile, opts.json,
+    #     opts.refseq, opts.sel)
