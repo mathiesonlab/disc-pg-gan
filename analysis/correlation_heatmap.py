@@ -13,13 +13,6 @@ import seaborn as sns
 from sklearn.cluster import AgglomerativeClustering
 import sys
 
-sys.path.insert(1, "../")
-sys.path.insert(2, "../plotting/")
-
-# our imports
-import global_vars
-import ss_helpers
-
 TICKS = [4.5, 26.5, 51.5, 59.5, 60.5]
 LABELS = ['SFS', 'inter-SNP distances', 'LD', '$\pi$', '#haps']
 
@@ -61,16 +54,28 @@ def format_function(tick, tick_pos):
     idx = TICKS.index(tick)
     return LABELS[idx]
 
+def make_title(hidden_file):
+    # train: CEU, test: GBR, seed: 2
+    filename = hidden_file.split("/")[-1].split(".")[0].split("_")
+    if "drex" in hidden_file:
+        train = filename[2].upper()
+    else:
+        train = filename[1]
+    test  = filename[-1]
+    seed  = ''.join(c for c in filename[2] if c.isdigit())
+    title = "train: " + train + ", test: " + test + ", seed: " + seed
+    return title
+
 def main():
     # input and output files
     stats_file = sys.argv[1]
     hidden_file = sys.argv[2]
     output_file = sys.argv[3]
-    title = sys.argv[4]
+
     print("stats file", stats_file)
     print("hidden file", hidden_file)
     print("output file", output_file)
-    print("title", title)
+    title = make_title(hidden_file)
 
     # colormap
     map = get_colormap(stats_file)
