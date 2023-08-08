@@ -1,0 +1,65 @@
+initialize() {
+
+	if (!exists("Ne"))
+           defineConstant("Ne", 10000);
+	if (!exists("T0"))
+	   defineConstant("T0", Ne*2);
+	if (!exists("reco"))
+	   defineConstant("reco", 1.25e-8);
+	if (!exists("L"))
+	   defineConstant("L", 50000);
+
+	initializeTreeSeq();
+	defineConstant("simID", getSeed());
+
+	initializeMutationRate(0);
+	initializeMutationType("m1", 0.5, "f", 0.0); // neutral
+	initializeMutationType("m2", 0.5, "f", sel); // positive
+        initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(reco);
+}
+
+1 {
+    mut_time = T0-1000;
+    sim.rescheduleScriptBlock(s2, start=mut_time, end=mut_time);
+    sim.rescheduleScriptBlock(s3, start=mut_time, end=T0);
+    sim.rescheduleScriptBlock(s4, start=T0, end=T0);
+
+    sim.addSubpop("p1", Ne);
+}
+
+s2 1001 {
+    pos = asInteger(L/2);
+    sample(p1.genomes, 1).addNewDrawnMutation(m2, pos);
+    // sim.outputFull("/tmp/slim_" + simID + ".txt");
+    sim.treeSeqOutput("/tmp/slim_"+simID+".trees");
+}
+
+s3 1002 {
+   sweep = sim.mutationsOfType(m2);
+
+   if (size(sweep) == 0)
+   {
+	if (any(sim.substitutions.mutationType == m2))
+	{
+	    // cat(simID + ": FIXED\n");
+	    // sim.readFromPopulationFile("/tmp/slim_" + simID + ".trees");
+	}
+   	else
+   	{
+	    cat(simID + ": LOST\n");
+	    sim.readFromPopulationFile("/tmp/slim_" + simID + ".trees");
+   	}
+    }
+    else
+    {
+	freq = sim.mutationFrequencies(NULL, sweep);
+    	catn(sim.generation + ": " + freq);
+    } 
+}
+
+// end sim
+s4 1003 late() {
+   sim.treeSeqOutput(outpath);
+}
