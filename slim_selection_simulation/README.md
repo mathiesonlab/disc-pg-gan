@@ -1,4 +1,4 @@
-# slim_real_data_generation
+# slim_selection_simulation
 
 This repository is for generating synthetic genetic data, using the Messer Lab's SLiM application, under a flexible demography and with various strengths of selection. The end goal is to have four `.npy` arrays, named `matrices`, `matrices_regions`, `distances`, and `distances_regions` for use in the `slim_iterator` available in the Mathieson Lab's `disc-pg-gan` repository, and can be used in substitution of `msprime`-generated synthetic data or real genetic data. Unlike `msprime`, SLiM is able to simulate selection, and the nature of generating the data in advance and loading it into a data structure results in a constant runtime for lookups.
 
@@ -31,7 +31,7 @@ python process_trees.py -i all_yri_neutral_trees.txt -o YRI_neutral_3000 -r ../r
 
 python process_trees.py -i all_CEU_sel01_trees.txt -o CEU_sel01_600 -r ../reco_rates.txt --Ne 22552
 
-python process_trees.py -i all_CHB_sel05_trees.txt -o CHB_sel05_600 -r ../reco_rates.txt --Ne 24607
+python process_trees.py -i all_CHB_sel05_trees.txt -o CHB_sel05_600 -r ../reco_rates.txt --Ne 24600
 ```
 
 This will output four numpy files: `matrices_SUFFIX.npy`, `matrices_regions_SUFFIX.npy`, `distances_SUFFIX.npy`, and `distances_regions_SUFFIX.npy`, for use in `disc-pg-gan`'s `slim_iterator.py`.
