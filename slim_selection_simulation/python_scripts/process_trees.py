@@ -94,7 +94,7 @@ def clean_tree(ts, reco, opts, selection, num_haps):
                                  ancestral_Ne=opts.Ne)
 
     if selection:
-        ts_simplified = simplify_selection_tree(ts_recap)
+        ts_simplified = simplify_selection_tree(ts_recap, num_haps)
     else:
         ts_simplified = simplify_tree(ts_recap, num_haps)
     ts_mutated = msprime.mutate(ts_simplified, rate=opts.mut, keep=True)
