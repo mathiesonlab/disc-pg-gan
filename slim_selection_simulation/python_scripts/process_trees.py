@@ -7,9 +7,6 @@ import tskit
 
 import global_vars
 
-num_haps = global_vars.DEFAULT_SAMPLE_SIZE # TODO get this from data
-num_inds = num_haps//2 # dihaploid
-
 def main(opts):
     reco_values = load_recos(opts.reco_path)
 
@@ -18,6 +15,7 @@ def main(opts):
     n_range = range(n_regions)
      
     # (N, 36, 198)
+    num_haps = opts.sample_size
     matrices = np.zeros((n_regions, global_vars.NUM_SNPS, num_haps))
     distances = np.zeros((n_regions, global_vars.NUM_SNPS))
     
@@ -35,7 +33,7 @@ def main(opts):
         use_selection = "sel" in file_name
 
         ts = pyslim.update(tskit.load(file_name))
-        ts = clean_tree(ts, reco, opts, use_selection)
+        ts = clean_tree(ts, reco, opts, use_selection, num_haps)
 
         gt_matrix = ts.genotype_matrix()
         num_snps_present = gt_matrix.shape[0]
@@ -91,24 +89,24 @@ def main(opts):
 '''
 necessary step. Do not remove.
 '''
-def clean_tree(ts, reco, opts, selection):
+def clean_tree(ts, reco, opts, selection, num_haps):
     ts_recap = pyslim.recapitate(ts, recombination_rate=reco,
                                  ancestral_Ne=opts.Ne)
 
     if selection:
         ts_simplified = simplify_selection_tree(ts_recap)
     else:
-        ts_simplified = simplify_tree(ts_recap)
+        ts_simplified = simplify_tree(ts_recap, num_haps)
     ts_mutated = msprime.mutate(ts_simplified, rate=opts.mut, keep=True)
     return ts_mutated
 
 '''
 part of above necessary step
 '''
-def simplify_tree(ts_recap):   
+def simplify_tree(ts_recap, num_haps):   
     # alive_inds = ts_recap.individuals_alive_at(0)
     alive_inds = np.array([i for i in range(ts_recap.num_individuals)])
-    keep_inds = np.random.choice(alive_inds, num_inds, replace=False)
+    keep_inds = np.random.choice(alive_inds, num_haps//2, replace=False)
     keep_nodes = []
 
     for i in keep_inds:
@@ -117,13 +115,13 @@ def simplify_tree(ts_recap):
     ts_simplified = ts_recap.simplify(keep_nodes)
     return ts_simplified
 
-def simplify_selection_tree(ts_recap):
+def simplify_selection_tree(ts_recap, num_haps):
     tries = 0
     num_muts = 0
     
     while num_muts < 1:
         tries += 1
-        ts_simplified = simplify_tree(ts_recap)
+        ts_simplified = simplify_tree(ts_recap, num_haps)
         num_muts = ts_simplified.genotype_matrix().shape[0]
 
     if tries > 1:
@@ -197,7 +195,8 @@ def parse_args():
     parser.add_option('-s', '--seed', type='int', default=1833,
         help='seed for RNG')
     parser.add_option('-m', '--mut', type='int', default=1.25e-8, help='mutation rate value')
-
+    parser.add_option('-n', '--sample_size', type='int', default=global_vars.DEFAULT_SAMPLE_SIZE, help='num haps')
+    
     (opts, args) = parser.parse_args()
 
     return opts
